@@ -1,7 +1,12 @@
+import Link from "next/link";
+import { AppNavbar } from "@/components/AppNavbar";
+
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <section className="mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-6 text-center">
+      <AppNavbar />
+
+      <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-6xl flex-col items-center justify-center px-6 text-center">
         <p className="mb-4 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
           AI-powered DevOps incident platform
         </p>
@@ -16,19 +21,19 @@ export default function HomePage() {
         </p>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-          <a
+          <Link
             href="/dashboard"
             className="rounded-lg bg-white px-6 py-3 font-medium text-slate-950 transition hover:bg-slate-200"
           >
             Open Dashboard
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/projects"
             className="rounded-lg border border-slate-700 px-6 py-3 font-medium text-white transition hover:bg-slate-900"
           >
             View Projects
-          </a>
+          </Link>
         </div>
       </section>
     </main>

@@ -1,3 +1,6 @@
+import { AppNavbar } from "@/components/AppNavbar";
+import { StatCard } from "@/components/StatCard";
+
 const stats = [
   {
     label: "Projects",
@@ -23,8 +26,10 @@ const stats = [
 
 export default function DashboardPage() {
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
-      <div className="mx-auto max-w-6xl">
+    <main className="min-h-screen bg-slate-950 text-white">
+      <AppNavbar />
+
+      <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-10">
           <p className="text-sm font-medium text-slate-400">OpsPilot AI</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">
@@ -38,16 +43,12 @@ export default function DashboardPage() {
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
-            <div
+            <StatCard
               key={stat.label}
-              className="rounded-xl border border-slate-800 bg-slate-900 p-5"
-            >
-              <p className="text-sm text-slate-400">{stat.label}</p>
-              <p className="mt-3 text-3xl font-bold">{stat.value}</p>
-              <p className="mt-2 text-sm text-slate-400">
-                {stat.description}
-              </p>
-            </div>
+              label={stat.label}
+              value={stat.value}
+              description={stat.description}
+            />
           ))}
         </section>
 
