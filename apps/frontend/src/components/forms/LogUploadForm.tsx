@@ -11,6 +11,7 @@ type LogUploadFormProps = {
 export function LogUploadForm({ projectId }: LogUploadFormProps) {
   const [source, setSource] = useState("");
   const [rawLogs, setRawLogs] = useState("");
+  const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,23 +20,28 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
     .split("\n")
     .filter((line) => line.trim().length > 0).length;
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  const file = event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const content = String(reader.result ?? "");
-      setRawLogs(content);
-    };
-
-    reader.readAsText(file);
+  if (!file) {
+    return;
   }
 
+  setFileName(file.name);
+
+  if (!source.trim()) {
+    setSource(file.name.replace(/\.(log|txt)$/i, ""));
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const content = String(reader.result ?? "");
+    setRawLogs(content);
+  };
+
+  reader.readAsText(file);
+}
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
