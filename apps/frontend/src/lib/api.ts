@@ -1,3 +1,5 @@
+import { logs } from "@/lib/logs";
+import type { LogEntry } from "@/lib/logs";
 import { getProjectById, projects } from "@/lib/projects";
 import type { Environment, Project } from "@/lib/projects";
 
@@ -30,4 +32,10 @@ export async function createProject(
     incidentsCount: 0,
     lastIncident: "No active incidents",
   };
+}
+
+export async function getProjectLogs(
+  projectId: string
+): Promise<LogEntry[]> {
+  return logs.filter((log) => log.projectId === Number(projectId));
 }

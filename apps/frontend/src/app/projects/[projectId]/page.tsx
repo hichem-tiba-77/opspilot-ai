@@ -75,6 +75,12 @@ export default async function ProjectDetailsPage({
           <h2 className="text-xl font-semibold">Latest Incident</h2>
 
           <p className="mt-3 text-slate-300">{project.lastIncident}</p>
+          <Link
+            href={`/projects/${projectId}/logs`}
+            className="mt-6 inline-flex rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200"
+          >
+            View Logs
+          </Link>
 
           <div className="mt-6 rounded-lg border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
             Later, this page will show uploaded logs, AI summaries, deployments,
