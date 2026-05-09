@@ -39,3 +39,24 @@ export async function getProjectLogs(
 ): Promise<LogEntry[]> {
   return logs.filter((log) => log.projectId === Number(projectId));
 }
+
+export type UploadProjectLogsInput = {
+  projectId: string;
+  source: string;
+  rawLogs: string;
+};
+
+export async function uploadProjectLogs(
+  input: UploadProjectLogsInput
+): Promise<{ success: boolean; linesCount: number }> {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const linesCount = input.rawLogs
+    .split("\n")
+    .filter((line) => line.trim().length > 0).length;
+
+  return {
+    success: true,
+    linesCount,
+  };
+}
