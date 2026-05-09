@@ -59,4 +59,41 @@ export async function uploadProjectLogs(
     success: true,
     linesCount,
   };
+} 
+
+export type AnalyzeProjectLogsInput = {
+  projectId: string;
+  question: string;
+};
+
+export async function analyzeProjectLogs(
+  input: AnalyzeProjectLogsInput
+): Promise<{ answer: string }> {
+  await new Promise((resolve) => setTimeout(resolve, 800));
+
+  const project = await getProject(input.projectId);
+  const projectLogs = await getProjectLogs(input.projectId);
+
+  const errorLogs = projectLogs.filter((log) => log.level === "ERROR");
+  const warningLogs = projectLogs.filter((log) => log.level === "WARN");
+
+  return {
+    answer: `AI analysis for ${project?.name ?? "this project"}:
+
+I found ${projectLogs.length} logs, including ${errorLogs.length} errors and ${warningLogs.length} warnings.
+
+Possible root cause:
+The most important issue appears to be related to backend or service errors. If there are database timeout messages, you should check database availability, connection settings, and environment variables.
+
+Suggested next steps:
+1. Check the latest ERROR logs.
+2. Verify backend environment variables.
+3. Check database connectivity.
+4. Review the last deployment.
+
+User question:
+"${input.question}"
+
+This is a fake frontend AI response. Later it will come from the backend and OpenAI API.`,
+  };
 }
