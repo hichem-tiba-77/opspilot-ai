@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { ProjectCard } from "@/components/ProjectCard";
 import { projects } from "@/lib/projects";
+
 
 export default function ProjectsPage() {
   return (
@@ -18,9 +20,11 @@ export default function ProjectsPage() {
             </p>
           </div>
 
-          <button className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200">
+          <Link
+            href="/projects/new"
+            className="rounded-lg bg-white px-5 py-3 text-center text-sm font-medium text-slate-950 transition hover:bg-slate-200">
             New Project
-          </button>
+          </Link>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-3">
