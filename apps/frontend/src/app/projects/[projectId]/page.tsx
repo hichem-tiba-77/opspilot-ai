@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getProjectById } from "@/lib/projects";
+import { getProject } from "@/lib/api";
 
 type ProjectDetailsPageProps = {
   params: Promise<{
@@ -13,7 +13,7 @@ export default async function ProjectDetailsPage({
   params,
 }: ProjectDetailsPageProps) {
   const { projectId } = await params;
-  const project = getProjectById(projectId);
+  const project = await getProject(projectId);
 
   if (!project) {
     notFound();

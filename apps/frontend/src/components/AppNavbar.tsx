@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { appConfig } from "@/lib/config";
 
 const navItems = [
   {
@@ -16,7 +17,7 @@ export function AppNavbar() {
     <header className="border-b border-slate-800 bg-slate-950">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="text-lg font-bold text-white">
-          OpsPilot AI
+          {appConfig.appName}
         </Link>
 
         <div className="flex items-center gap-4">

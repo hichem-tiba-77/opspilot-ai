@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ProjectCard } from "@/components/ProjectCard";
-import { projects } from "@/lib/projects";
+import { getProjects } from "@/lib/api";
 
+export default async function ProjectsPage() {
+  const projects = await getProjects();
 
-export default function ProjectsPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-
       <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
           <div>
@@ -22,7 +22,8 @@ export default function ProjectsPage() {
 
           <Link
             href="/projects/new"
-            className="rounded-lg bg-white px-5 py-3 text-center text-sm font-medium text-slate-950 transition hover:bg-slate-200">
+            className="rounded-lg bg-white px-5 py-3 text-center text-sm font-medium text-slate-950 transition hover:bg-slate-200"
+          >
             New Project
           </Link>
         </header>

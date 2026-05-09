@@ -1,4 +1,17 @@
-export const projects = [
+export type Environment = "Development" | "Staging" | "Production";
+
+export type Project = {
+  id: number;
+  name: string;
+  description: string;
+  status: "Healthy" | "Warning" | "Critical";
+  logsCount: number;
+  incidentsCount: number;
+  lastIncident: string;
+  environment: Environment;
+};
+
+export const projects: Project[] = [
   {
     id: 1,
     name: "Backend API",

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-
-type Environment = "Development" | "Staging" | "Production";
+import { createProject } from "@/lib/api";
+import type { Environment } from "@/lib/projects";
 
 export function NewProjectForm() {
   const [name, setName] = useState("");
@@ -11,8 +11,9 @@ export function NewProjectForm() {
   const [environment, setEnvironment] = useState<Environment>("Development");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
@@ -28,9 +29,19 @@ export function NewProjectForm() {
       return;
     }
 
+    setIsSubmitting(true);
+
+    const project = await createProject({
+      name,
+      description,
+      environment,
+    });
+
     setSuccessMessage(
-      `Project "${name}" was created locally. Backend connection will be added later.`
+      `Project "${project.name}" was created locally. Backend connection will be added later.`
     );
+
+    setIsSubmitting(false);
   }
 
   return (
@@ -127,9 +138,10 @@ export function NewProjectForm() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <button
           type="submit"
-          className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200"
+          disabled={isSubmitting}
+          className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Create Project
+          {isSubmitting ? "Creating..." : "Create Project"}
         </button>
 
         <Link
