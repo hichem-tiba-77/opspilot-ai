@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppNavbar } from "@/components/AppNavbar";
+
 import { getProjectById } from "@/lib/projects";
 
 type ProjectDetailsPageProps = {
@@ -21,7 +21,6 @@ export default async function ProjectDetailsPage({
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <AppNavbar />
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         <Link

@@ -1,11 +1,8 @@
 import Link from "next/link";
-import { AppNavbar } from "@/components/AppNavbar";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <AppNavbar />
-
+    <main className="min-h-[calc(100vh-73px)] bg-slate-950 text-white">
       <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-6xl flex-col items-center justify-center px-6 text-center">
         <p className="mb-4 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
           AI-powered DevOps incident platform

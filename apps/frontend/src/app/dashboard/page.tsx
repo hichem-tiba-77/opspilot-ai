@@ -1,4 +1,3 @@
-import { AppNavbar } from "@/components/AppNavbar";
 import { StatCard } from "@/components/StatCard";
 
 const stats = [
@@ -27,7 +26,6 @@ const stats = [
 export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <AppNavbar />
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-10">

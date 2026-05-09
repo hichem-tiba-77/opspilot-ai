@@ -1,11 +1,9 @@
-import { AppNavbar } from "@/components/AppNavbar";
 import { ProjectCard } from "@/components/ProjectCard";
 import { projects } from "@/lib/projects";
 
 export default function ProjectsPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <AppNavbar />
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
