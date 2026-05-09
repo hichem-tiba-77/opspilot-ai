@@ -1,32 +1,6 @@
 import { AppNavbar } from "@/components/AppNavbar";
 import { ProjectCard } from "@/components/ProjectCard";
-
-const projects = [
-  {
-    id: 1,
-    name: "Backend API",
-    description: "Main FastAPI service that will handle users, logs, and AI analysis.",
-    status: "Healthy",
-    logsCount: 842,
-    incidentsCount: 1,
-  },
-  {
-    id: 2,
-    name: "Frontend Dashboard",
-    description: "Next.js dashboard used by teams to review logs and incidents.",
-    status: "Healthy",
-    logsCount: 256,
-    incidentsCount: 0,
-  },
-  {
-    id: 3,
-    name: "Worker Service",
-    description: "Background service that will process AI log analysis jobs.",
-    status: "Warning",
-    logsCount: 150,
-    incidentsCount: 1,
-  },
-];
+import { projects } from "@/lib/projects";
 
 export default function ProjectsPage() {
   return (
@@ -55,6 +29,7 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <ProjectCard
               key={project.id}
+              id={project.id}
               name={project.name}
               description={project.description}
               status={project.status}

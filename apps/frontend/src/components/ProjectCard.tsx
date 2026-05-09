@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 type ProjectCardProps = {
+  id: number;
   name: string;
   description: string;
   status: string;
@@ -7,6 +10,7 @@ type ProjectCardProps = {
 };
 
 export function ProjectCard({
+  id,
   name,
   description,
   status,
@@ -39,6 +43,13 @@ export function ProjectCard({
           </p>
         </div>
       </div>
+
+      <Link
+        href={`/projects/${id}`}
+        className="mt-6 inline-flex rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+      >
+        View details
+      </Link>
     </div>
   );
 }
