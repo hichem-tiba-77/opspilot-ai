@@ -2,6 +2,8 @@ import { logs } from "@/lib/logs";
 import type { LogEntry } from "@/lib/logs";
 import { getProjectById, projects } from "@/lib/projects";
 import type { Environment, Project } from "@/lib/projects";
+import { getIncidentById, incidents } from "@/lib/incidents";
+import type { Incident } from "@/lib/incidents";
 
 export type CreateProjectInput = {
   name: string;
@@ -96,4 +98,14 @@ User question:
 
 This is a fake frontend AI response. Later it will come from the backend and OpenAI API.`,
   };
+}
+
+export async function getIncidents(): Promise<Incident[]> {
+  return incidents;
+}
+
+export async function getIncident(
+  incidentId: string
+): Promise<Incident | undefined> {
+  return getIncidentById(incidentId);
 }

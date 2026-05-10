@@ -10,6 +10,10 @@ const navItems = [
     label: "Projects",
     href: "/projects",
   },
+  {
+    label: "Incidents",
+    href: "/incidents",
+  },
 ];
 
 export function AppNavbar() {
