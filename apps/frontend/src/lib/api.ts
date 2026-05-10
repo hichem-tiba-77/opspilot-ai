@@ -109,3 +109,36 @@ export async function getIncident(
 ): Promise<Incident | undefined> {
   return getIncidentById(incidentId);
 }
+
+export type LoginInput = {
+  email: string;
+  password: string;
+};
+
+export type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+export async function loginUser(
+  input: LoginInput
+): Promise<{ success: boolean; email: string }> {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  return {
+    success: true,
+    email: input.email,
+  };
+}
+
+export async function registerUser(
+  input: RegisterInput
+): Promise<{ success: boolean; email: string }> {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  return {
+    success: true,
+    email: input.email,
+  };
+}
