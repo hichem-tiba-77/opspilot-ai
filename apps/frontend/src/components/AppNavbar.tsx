@@ -15,6 +15,10 @@ const navItems = [
     href: "/incidents",
   },
   {
+    label: "Settings",
+    href: "/settings",
+  },
+  {
     label: "Login",
     href: "/login",
   },
