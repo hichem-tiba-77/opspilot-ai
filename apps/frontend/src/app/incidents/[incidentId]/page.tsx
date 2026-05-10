@@ -103,7 +103,7 @@ export default async function IncidentDetailsPage({
 
             {project ? (
               <Link
-                href={`/projects/${project.id}`}
+                href={`/projects/${incident.projectId}`}
                 className="mt-3 block text-2xl font-bold transition hover:text-slate-300"
               >
                 {project.name}
@@ -145,23 +145,21 @@ export default async function IncidentDetailsPage({
               <p>4. Ask OpsPilot AI to summarize the root cause.</p>
             </div>
 
-            {project && (
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href={`/projects/${project.id}/logs`}
-                  className="rounded-lg bg-white px-5 py-3 text-center text-sm font-medium text-slate-950 transition hover:bg-slate-200"
-                >
-                  View Project Logs
-                </Link>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={`/projects/${incident.projectId}/logs`}
+                className="rounded-lg bg-white px-5 py-3 text-center text-sm font-medium text-slate-950 transition hover:bg-slate-200"
+              >
+                View Project Logs
+              </Link>
 
-                <Link
-                  href={`/projects/${project.id}/ai`}
-                  className="rounded-lg border border-slate-700 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"
-                >
-                  Ask AI
-                </Link>
-              </div>
-            )}
+              <Link
+                href={`/projects/${incident.projectId}/ai`}
+                className="rounded-lg border border-slate-700 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                Ask AI
+              </Link>
+            </div>
           </div>
         </section>
       </div>
