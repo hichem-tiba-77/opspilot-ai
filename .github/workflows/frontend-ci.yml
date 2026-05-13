@@ -8,6 +8,7 @@ on:
     paths:
       - "apps/frontend/**"
       - ".github/workflows/frontend-ci.yml"
+      - "docker-compose.yml"
   pull_request:
     branches:
       - main
@@ -16,6 +17,8 @@ on:
       - "apps/frontend/**"
       - ".github/workflows/frontend-ci.yml"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
 
@@ -44,5 +47,7 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+      - name: build frontend docker image
+        run: docker build -t opspilot-frontend .
 
         
