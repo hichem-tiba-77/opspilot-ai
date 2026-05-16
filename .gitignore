@@ -1,3 +1,20 @@
 # dependencies
 node_modules/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Environment files — NEVER commit these, they contain real secrets
+.env
+*.env
+!.env.example
+
+# Virtual environments
+venv/
+.venv/
+env/
