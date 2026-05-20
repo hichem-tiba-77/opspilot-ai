@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, engine
-from app.models import user  # noqa: F401
-from app.routers import auth
+from app.models import user, project, log, incident  # noqa: F401
+from app.routers import auth, projects, logs, incidents, analysis
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,6 +23,10 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(projects.router, prefix="/api/v1")
+app.include_router(logs.router, prefix="/api/v1")
+app.include_router(incidents.router, prefix="/api/v1")
+app.include_router(analysis.router, prefix="/api/v1")
 
 
 @app.get("/health")
