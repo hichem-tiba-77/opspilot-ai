@@ -1,114 +1,53 @@
-import { logs } from "@/lib/logs";
-import type { LogEntry } from "@/lib/logs";
-import { getProjectById, projects } from "@/lib/projects";
-import type { Environment, Project } from "@/lib/projects";
-import { getIncidentById, incidents } from "@/lib/incidents";
-import type { Incident } from "@/lib/incidents";
+// ── Config ────────────────────────────────────────────────────────────────────
 
-export type CreateProjectInput = {
-  name: string;
-  description: string;
-  environment: Environment;
-};
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export async function getProjects(): Promise<Project[]> {
-  return projects;
+// ── HTTP helper ───────────────────────────────────────────────────────────────
+
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const url = `${API_URL}${path}`;
+
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    ...options,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.detail ?? `Request failed: ${res.status}`);
+  }
+
+  return res.json() as Promise<T>;
 }
 
-export async function getProject(projectId: string): Promise<Project | undefined> {
-  return getProjectById(projectId);
+// ── Token helpers ─────────────────────────────────────────────────────────────
+
+export function saveToken(token: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("access_token", token);
+  }
 }
 
-export async function createProject(
-  input: CreateProjectInput
-): Promise<Project> {
-  await new Promise((resolve) => setTimeout(resolve, 400));
-
-  return {
-    id: Date.now(),
-    name: input.name,
-    description: input.description,
-    environment: input.environment,
-    status: "Healthy",
-    logsCount: 0,
-    incidentsCount: 0,
-    lastIncident: "No active incidents",
-  };
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
 }
 
-export async function getProjectLogs(
-  projectId: string
-): Promise<LogEntry[]> {
-  return logs.filter((log) => log.projectId === Number(projectId));
+export function clearToken(): void {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("access_token");
+  }
 }
 
-export type UploadProjectLogsInput = {
-  projectId: string;
-  source: string;
-  rawLogs: string;
-};
-
-export async function uploadProjectLogs(
-  input: UploadProjectLogsInput
-): Promise<{ success: boolean; linesCount: number }> {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  const linesCount = input.rawLogs
-    .split("\n")
-    .filter((line) => line.trim().length > 0).length;
-
-  return {
-    success: true,
-    linesCount,
-  };
-} 
-
-export type AnalyzeProjectLogsInput = {
-  projectId: string;
-  question: string;
-};
-
-export async function analyzeProjectLogs(
-  input: AnalyzeProjectLogsInput
-): Promise<{ answer: string }> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-
-  const project = await getProject(input.projectId);
-  const projectLogs = await getProjectLogs(input.projectId);
-
-  const errorLogs = projectLogs.filter((log) => log.level === "ERROR");
-  const warningLogs = projectLogs.filter((log) => log.level === "WARN");
-
-  return {
-    answer: `AI analysis for ${project?.name ?? "this project"}:
-
-I found ${projectLogs.length} logs, including ${errorLogs.length} errors and ${warningLogs.length} warnings.
-
-Possible root cause:
-The most important issue appears to be related to backend or service errors. If there are database timeout messages, you should check database availability, connection settings, and environment variables.
-
-Suggested next steps:
-1. Check the latest ERROR logs.
-2. Verify backend environment variables.
-3. Check database connectivity.
-4. Review the last deployment.
-
-User question:
-"${input.question}"
-
-This is a fake frontend AI response. Later it will come from the backend and OpenAI API.`,
-  };
+export function authHeader(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getIncidents(): Promise<Incident[]> {
-  return incidents;
-}
-
-export async function getIncident(
-  incidentId: string
-): Promise<Incident | undefined> {
-  return getIncidentById(incidentId);
-}
+// ── Auth ──────────────────────────────────────────────────────────────────────
 
 export type LoginInput = {
   email: string;
@@ -121,24 +60,194 @@ export type RegisterInput = {
   password: string;
 };
 
-export async function loginUser(
-  input: LoginInput
-): Promise<{ success: boolean; email: string }> {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  return {
-    success: true,
-    email: input.email,
-  };
+export async function loginUser(input: LoginInput): Promise<{ success: boolean }> {
+  const data = await apiFetch<{ access_token: string }>("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  saveToken(data.access_token);
+  return { success: true };
 }
 
-export async function registerUser(
-  input: RegisterInput
-): Promise<{ success: boolean; email: string }> {
-  await new Promise((resolve) => setTimeout(resolve, 500));
+export async function registerUser(input: RegisterInput): Promise<{ success: boolean }> {
+  const data = await apiFetch<{ access_token: string }>("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  saveToken(data.access_token);
+  return { success: true };
+}
 
-  return {
-    success: true,
-    email: input.email,
-  };
+export async function getCurrentUser(): Promise<{
+  id: number;
+  name: string;
+  email: string;
+} | null> {
+  try {
+    return await apiFetch("/api/v1/auth/me", {
+      headers: authHeader(),
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function logoutUser(): void {
+  clearToken();
+}
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+
+export type Environment = "production" | "staging" | "development";
+
+export type Project = {
+  id: number;
+  name: string;
+  description: string;
+  environment: Environment;
+  status: string;
+  created_at: string;
+  owner_id: number;
+};
+
+export type CreateProjectInput = {
+  name: string;
+  description: string;
+  environment: Environment;
+};
+
+export async function getProjects(): Promise<Project[]> {
+  return apiFetch<Project[]>("/api/v1/projects", {
+    headers: authHeader(),
+  });
+}
+
+export async function getProject(projectId: string): Promise<Project> {
+  return apiFetch<Project>(`/api/v1/projects/${projectId}`, {
+    headers: authHeader(),
+  });
+}
+
+export async function createProject(input: CreateProjectInput): Promise<Project> {
+  return apiFetch<Project>("/api/v1/projects", {
+    method: "POST",
+    headers: authHeader(),
+    body: JSON.stringify(input),
+  });
+}
+// ── Logs ──────────────────────────────────────────────────────────────────────
+
+export type LogLevel = "ERROR" | "WARN" | "INFO" | "DEBUG";
+
+export type Log = {
+  id: number;
+  level: LogLevel;
+  message: string;
+  source: string;
+  timestamp: string;
+  project_id: number;
+};
+
+export type UploadLogsInput = {
+  projectId: string;
+  logs: {
+    level: LogLevel;
+    message: string;
+    source: string;
+    timestamp?: string;
+  }[];
+};
+
+export async function getProjectLogs(projectId: string): Promise<Log[]> {
+  return apiFetch<Log[]>(`/api/v1/projects/${projectId}/logs`, {
+    headers: authHeader(),
+  });
+}
+
+export async function uploadProjectLogs(input: UploadLogsInput): Promise<Log[]> {
+  return apiFetch<Log[]>(`/api/v1/projects/${input.projectId}/logs`, {
+    method: "POST",
+    headers: authHeader(),
+    body: JSON.stringify({ logs: input.logs }),
+  });
+}
+// ── AI Analysis ───────────────────────────────────────────────────────────────
+
+export type AnalyzeProjectLogsInput = {
+  projectId: string;
+  question: string;
+};
+
+export async function analyzeProjectLogs(
+  input: AnalyzeProjectLogsInput
+): Promise<{ answer: string }> {
+  return apiFetch<{ answer: string }>(
+    `/api/v1/projects/${input.projectId}/analysis`,
+    {
+      method: "POST",
+      headers: authHeader(),
+      body: JSON.stringify({ question: input.question }),
+    }
+  );
+}
+// ── Incidents ─────────────────────────────────────────────────────────────────
+
+export type IncidentSeverity = "critical" | "high" | "medium" | "low";
+export type IncidentStatus = "open" | "investigating" | "resolved";
+
+export type Incident = {
+  id: number;
+  title: string;
+  description: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  created_at: string;
+  resolved_at: string | null;
+  project_id: number;
+};
+
+export type CreateIncidentInput = {
+  title: string;
+  description?: string;
+  severity: IncidentSeverity;
+};
+
+export async function getIncidents(projectId: string): Promise<Incident[]> {
+  return apiFetch<Incident[]>(`/api/v1/projects/${projectId}/incidents`, {
+    headers: authHeader(),
+  });
+}
+
+export async function getIncident(
+  projectId: string,
+  incidentId: string
+): Promise<Incident> {
+  return apiFetch<Incident>(`/api/v1/projects/${projectId}/incidents/${incidentId}`, {
+    headers: authHeader(),
+  });
+}
+
+export async function createIncident(
+  projectId: string,
+  input: CreateIncidentInput
+): Promise<Incident> {
+  return apiFetch<Incident>(`/api/v1/projects/${projectId}/incidents`, {
+    method: "POST",
+    headers: authHeader(),
+    body: JSON.stringify(input),
+  });
+}
+
+export async function resolveIncident(
+  projectId: string,
+  incidentId: string
+): Promise<Incident> {
+  return apiFetch<Incident>(
+    `/api/v1/projects/${projectId}/incidents/${incidentId}/resolve`,
+    {
+      method: "PATCH",
+      headers: authHeader(),
+      body: JSON.stringify({}),
+    }
+  );
 }
