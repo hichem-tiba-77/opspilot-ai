@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { analyzeProjectLogs } from "@/lib/api";
 
 type AIAnalysisFormProps = {
   projectId: string;
 };
+
+const EXAMPLE_QUESTIONS = [
+  "Summarize the latest errors.",
+  "What is the possible root cause?",
+  "Generate an incident report.",
+  "What should I check next?",
+];
 
 export function AIAnalysisForm({ projectId }: AIAnalysisFormProps) {
   const [question, setQuestion] = useState("");
@@ -22,29 +30,16 @@ export function AIAnalysisForm({ projectId }: AIAnalysisFormProps) {
     }
 
     setIsAnalyzing(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    setAnswer(`AI analysis for project ${projectId}:
-
-Question:
-"${question}"
-
-Fake analysis:
-I checked the project logs and found possible issues related to errors, warnings, or service delays.
-
-Possible root cause:
-The issue may be related to backend errors, slow service responses, or a failed dependency such as a database or external service.
-
-Suggested next steps:
-1. Check the latest ERROR logs.
-2. Verify environment variables.
-3. Check database or service connectivity.
-4. Review the last deployment.
-
-This is a frontend-only fake AI response. Later it will come from the backend and real AI API.`);
-
-    setIsAnalyzing(false);
+    try {
+      const result = await analyzeProjectLogs(projectId, question);
+      setAnswer(result.answer);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Analysis failed. Please try again."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   return (
@@ -63,27 +58,29 @@ This is a frontend-only fake AI response. Later it will come from the backend an
           >
             Ask OpsPilot AI
           </label>
-
           <textarea
             id="question"
             rows={8}
             value={question}
-            onChange={(event) => setQuestion(event.target.value)}
+            onChange={(e) => setQuestion(e.target.value)}
             placeholder="Example: Why is my backend failing?"
             className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
           />
         </div>
 
         <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-          <p className="text-sm font-medium text-slate-300">
-            Example questions
-          </p>
-
-          <div className="mt-3 space-y-2 text-sm text-slate-400">
-            <p>• Summarize the latest errors.</p>
-            <p>• What is the possible root cause?</p>
-            <p>• Generate an incident report.</p>
-            <p>• What should I check next?</p>
+          <p className="text-sm font-medium text-slate-300">Example questions</p>
+          <div className="mt-3 space-y-2">
+            {EXAMPLE_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => setQuestion(q)}
+                className="block w-full text-left text-sm text-slate-400 transition hover:text-white"
+              >
+                • {q}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -93,7 +90,7 @@ This is a frontend-only fake AI response. Later it will come from the backend an
           disabled={isAnalyzing}
           className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isAnalyzing ? "Analyzing..." : "Analyze Logs"}
+          {isAnalyzing ? "Analyzing…" : "Analyze Logs"}
         </button>
       </div>
 
@@ -101,8 +98,11 @@ This is a frontend-only fake AI response. Later it will come from the backend an
         <h2 className="text-xl font-semibold">AI Response</h2>
 
         {isAnalyzing && (
-          <div className="mt-5 rounded-lg border border-slate-800 bg-slate-950 p-6 text-sm text-slate-400">
-            Analyzing project logs...
+          <div className="mt-5 rounded-lg border border-slate-800 bg-slate-950 p-6">
+            <div className="flex items-center gap-3 text-sm text-slate-400">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-slate-300" />
+              Analyzing project logs…
+            </div>
           </div>
         )}
 
@@ -112,7 +112,7 @@ This is a frontend-only fake AI response. Later it will come from the backend an
           </pre>
         )}
 
-        {!isAnalyzing && !answer && (
+        {!isAnalyzing && !answer && !error && (
           <div className="mt-5 rounded-lg border border-slate-800 bg-slate-950 p-6 text-sm text-slate-400">
             Ask a question about this project&apos;s logs. The AI response will
             appear here.

@@ -2,46 +2,42 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { loginUser } from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { login } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setError("");
-    setSuccessMessage("");
 
     if (!email.trim()) {
       setError("Email is required.");
       return;
     }
-
     if (!password.trim()) {
       setError("Password is required.");
       return;
     }
 
     setIsSubmitting(true);
-
-    const result = await loginUser({
-      email,
-      password,
-    });
-
-    if (result.success) {
-      setSuccessMessage(
-        `Logged in locally as ${result.email}. Backend auth will be added later.`
-      );
+    try {
+      await login({ email, password });
+      const redirect = searchParams.get("redirect") ?? "/dashboard";
+      router.push(redirect);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   }
 
   return (
@@ -55,12 +51,6 @@ export function LoginForm() {
         </div>
       )}
 
-      {successMessage && (
-        <div className="rounded-lg border border-emerald-900 bg-emerald-950 px-4 py-3 text-sm text-emerald-300">
-          {successMessage}
-        </div>
-      )}
-
       <div>
         <label
           htmlFor="email"
@@ -68,13 +58,12 @@ export function LoginForm() {
         >
           Email
         </label>
-
         <input
           id="email"
           name="email"
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
         />
@@ -87,13 +76,12 @@ export function LoginForm() {
         >
           Password
         </label>
-
         <input
           id="password"
           name="password"
           type="password"
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
           placeholder="Your password"
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
         />
@@ -104,7 +92,7 @@ export function LoginForm() {
         disabled={isSubmitting}
         className="w-full rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? "Logging in..." : "Login"}
+        {isSubmitting ? "Logging in…" : "Login"}
       </button>
 
       <p className="text-center text-sm text-slate-400">

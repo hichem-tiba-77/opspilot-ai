@@ -2,11 +2,38 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { uploadProjectLogs } from "@/lib/api";
+import { uploadProjectLogs, type LogLevel } from "@/lib/api";
 
 type LogUploadFormProps = {
   projectId: string;
 };
+
+const LEVEL_PATTERN = /^(ERROR|WARN|WARNING|INFO|DEBUG)\s+/i;
+
+/**
+ * Parse raw log text into structured log entries.
+ * Accepts lines like: "ERROR Something went wrong"
+ * Or fallback: treats entire line as INFO message.
+ */
+function parseRawLogs(raw: string, source: string) {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const match = line.match(LEVEL_PATTERN);
+      if (match) {
+        const rawLevel = match[1].toUpperCase();
+        const level: LogLevel =
+          rawLevel === "WARNING"
+            ? "WARN"
+            : (rawLevel as LogLevel);
+        const message = line.slice(match[0].length).trim();
+        return { level, message, source };
+      }
+      return { level: "INFO" as LogLevel, message: line, source };
+    });
+}
 
 export function LogUploadForm({ projectId }: LogUploadFormProps) {
   const [source, setSource] = useState("");
@@ -21,28 +48,19 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     if (!source.trim()) {
       setSource(file.name.replace(/\.(log|txt)$/i, ""));
     }
 
     const reader = new FileReader();
-
-    reader.onload = () => {
-      const content = String(reader.result ?? "");
-      setRawLogs(content);
-    };
-
+    reader.onload = () => setRawLogs(String(reader.result ?? ""));
     reader.readAsText(file);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setError("");
     setSuccessMessage("");
 
@@ -50,27 +68,29 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
       setError("Log source is required.");
       return;
     }
-
     if (!rawLogs.trim()) {
       setError("Please paste logs or upload a log file.");
       return;
     }
 
-    setIsSubmitting(true);
-
-    const result = await uploadProjectLogs({
-      projectId,
-      source,
-      rawLogs,
-    });
-
-    if (result.success) {
-      setSuccessMessage(
-        `${result.linesCount} log lines were uploaded locally. Backend connection will be added later.`
-      );
+    const parsedLogs = parseRawLogs(rawLogs, source);
+    if (parsedLogs.length === 0) {
+      setError("No valid log lines detected.");
+      return;
     }
 
-    setIsSubmitting(false);
+    setIsSubmitting(true);
+    try {
+      const uploaded = await uploadProjectLogs(projectId, parsedLogs);
+      setSuccessMessage(
+        `${uploaded.length} log line${uploaded.length !== 1 ? "s" : ""} uploaded successfully.`
+      );
+      setRawLogs("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -83,7 +103,6 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
           {error}
         </div>
       )}
-
       {successMessage && (
         <div className="rounded-lg border border-emerald-900 bg-emerald-950 px-4 py-3 text-sm text-emerald-300">
           {successMessage}
@@ -97,13 +116,12 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
         >
           Log source
         </label>
-
         <input
           id="source"
           name="source"
           type="text"
           value={source}
-          onChange={(event) => setSource(event.target.value)}
+          onChange={(e) => setSource(e.target.value)}
           placeholder="Example: Backend API, Auth Service, Worker Service"
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
         />
@@ -116,7 +134,6 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
         >
           Upload log file
         </label>
-
         <input
           id="logFile"
           name="logFile"
@@ -125,9 +142,8 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
           onChange={handleFileChange}
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-950"
         />
-
         <p className="mt-2 text-xs text-slate-500">
-          Accepted formats for now: .log and .txt
+          Accepted formats: .log and .txt
         </p>
       </div>
 
@@ -138,29 +154,24 @@ export function LogUploadForm({ projectId }: LogUploadFormProps) {
         >
           Paste logs manually
         </label>
-
         <textarea
           id="rawLogs"
           name="rawLogs"
           rows={10}
           value={rawLogs}
-          onChange={(event) => setRawLogs(event.target.value)}
-          placeholder={`ERROR Database connection timeout
-WARN Slow response detected
-INFO User login successful`}
+          onChange={(e) => setRawLogs(e.target.value)}
+          placeholder={`ERROR Database connection timeout\nWARN Slow response detected\nINFO User login successful`}
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 font-mono text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
         />
       </div>
 
       <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
         <p className="text-sm font-medium text-slate-300">Upload preview</p>
-
         <div className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
           <div>
             <p className="text-slate-500">Source</p>
             <p className="mt-1 text-white">{source || "No source yet"}</p>
           </div>
-
           <div>
             <p className="text-slate-500">Detected log lines</p>
             <p className="mt-1 text-white">{linesCount}</p>
@@ -174,9 +185,8 @@ INFO User login successful`}
           disabled={isSubmitting}
           className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? "Uploading..." : "Upload Logs"}
+          {isSubmitting ? "Uploading…" : "Upload Logs"}
         </button>
-
         <Link
           href={`/projects/${projectId}/logs`}
           className="rounded-lg border border-slate-700 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"

@@ -1,0 +1,25 @@
+name: BACKEND CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "apps/frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+
+jobs:
+  backend-ci:
+    name: Lint, verify and build
+    runs-on: ubuntu-22.04
+    steps:
+      - 
+  

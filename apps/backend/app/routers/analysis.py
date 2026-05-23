@@ -3,10 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_project_or_404
 from app.models.log import Log
-from app.models.project import Project
 from app.models.user import User
 
 router = APIRouter(prefix="/projects/{project_id}/analysis", tags=["analysis"])
@@ -20,19 +20,8 @@ class AnalysisResponse(BaseModel):
     answer: str
 
 
-def get_project_or_404(project_id: int, user_id: int, db: Session) -> Project:
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.owner_id == user_id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return project
-
-
 @router.post("", response_model=AnalysisResponse)
-async def analyze_logs(
+def analyze_logs(
     project_id: int,
     body: AnalysisRequest,
     db: Session = Depends(get_db),
@@ -54,9 +43,7 @@ async def analyze_logs(
             detail="No logs found for this project. Upload some logs first.",
         )
 
-    # Check if a real API key is configured
-    import os
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = settings.ANTHROPIC_API_KEY
 
     if api_key:
         # Real AI analysis
@@ -80,7 +67,7 @@ and suggest concrete next steps to investigate or fix the issue."""
 
             client = anthropic.Anthropic(api_key=api_key)
             message = client.messages.create(
-                model="claude-opus-4-5",
+                model="claude-sonnet-4-20250514",
                 max_tokens=1024,
                 messages=[{"role": "user", "content": prompt}],
             )

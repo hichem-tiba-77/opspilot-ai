@@ -2,22 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createProject } from "@/lib/api";
-import type { Environment } from "@/lib/projects";
+
+type Environment = "development" | "staging" | "production";
 
 export function NewProjectForm() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [environment, setEnvironment] = useState<Environment>("Development");
+  const [environment, setEnvironment] = useState<Environment>("development");
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const router = useRouter();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setError("");
-    setSuccessMessage("");
 
     if (!name.trim()) {
       setError("Project name is required.");
@@ -30,18 +31,14 @@ export function NewProjectForm() {
     }
 
     setIsSubmitting(true);
-
-    const project = await createProject({
-      name,
-      description,
-      environment,
-    });
-
-    setSuccessMessage(
-      `Project "${project.name}" was created locally. Backend connection will be added later.`
-    );
-
-    setIsSubmitting(false);
+    try {
+      await createProject({ name, description, environment });
+      router.push("/projects");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create project. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -52,12 +49,6 @@ export function NewProjectForm() {
       {error && (
         <div className="rounded-lg border border-red-900 bg-red-950 px-4 py-3 text-sm text-red-300">
           {error}
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="rounded-lg border border-emerald-900 bg-emerald-950 px-4 py-3 text-sm text-emerald-300">
-          {successMessage}
         </div>
       )}
 
@@ -116,9 +107,9 @@ export function NewProjectForm() {
           }
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-slate-400"
         >
-          <option>Development</option>
-          <option>Staging</option>
-          <option>Production</option>
+          <option value="development">Development</option>
+          <option value="staging">Staging</option>
+          <option value="production">Production</option>
         </select>
       </div>
 

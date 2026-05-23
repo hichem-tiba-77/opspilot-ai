@@ -1,12 +1,20 @@
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel
+
+
+class SeverityEnum(str, Enum):
+    critical = "critical"
+    high = "high"
+    medium = "medium"
+    low = "low"
 
 
 class CreateIncidentRequest(BaseModel):
     title: str
     description: str = ""
-    severity: str
+    severity: SeverityEnum
 
 
 class ResolveIncidentRequest(BaseModel):

@@ -1,37 +1,35 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProject, getProjectLogs } from "@/lib/api";
+import { serverFetch } from "@/lib/api-server";
+import type { ProjectDetail, LogEntry } from "@/lib/api";
 
 type ProjectLogsPageProps = {
-  params: Promise<{
-    projectId: string;
-  }>;
+  params: Promise<{ projectId: string }>;
 };
 
 function getLevelClass(level: string) {
-  if (level === "ERROR") {
-    return "border-red-900 bg-red-950 text-red-300";
-  }
-
-  if (level === "WARN") {
-    return "border-yellow-900 bg-yellow-950 text-yellow-300";
-  }
-
+  if (level === "ERROR") return "border-red-900 bg-red-950 text-red-300";
+  if (level === "WARN") return "border-yellow-900 bg-yellow-950 text-yellow-300";
+  if (level === "DEBUG") return "border-slate-700 bg-slate-900 text-slate-400";
   return "border-slate-700 bg-slate-950 text-slate-300";
 }
 
-export default async function ProjectLogsPage({
-  params,
-}: ProjectLogsPageProps) {
+export default async function ProjectLogsPage({ params }: ProjectLogsPageProps) {
   const { projectId } = await params;
 
-  const project = await getProject(projectId);
-
-  if (!project) {
+  let project: ProjectDetail;
+  try {
+    project = await serverFetch<ProjectDetail>(`/api/v1/projects/${projectId}`);
+  } catch {
     notFound();
   }
 
-  const logs = await getProjectLogs(projectId);
+  let logs: LogEntry[] = [];
+  try {
+    logs = await serverFetch<LogEntry[]>(`/api/v1/projects/${projectId}/logs`);
+  } catch {
+    // show empty state
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -45,15 +43,12 @@ export default async function ProjectLogsPage({
 
         <header className="mt-8 flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
           <div>
-            <p className="text-sm font-medium text-slate-400">
-              Project Logs
-            </p>
+            <p className="text-sm font-medium text-slate-400">Project Logs</p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight">
               {project.name}
             </h1>
             <p className="mt-3 max-w-2xl text-slate-300">
-              Review recent logs from this project. Later, these logs will come
-              from the backend and can be analyzed by AI.
+              {logs.length.toLocaleString()} log{logs.length !== 1 ? "s" : ""} stored.
             </p>
           </div>
 
@@ -72,7 +67,14 @@ export default async function ProjectLogsPage({
 
           {logs.length === 0 ? (
             <div className="px-6 py-10 text-center text-slate-400">
-              No logs found for this project.
+              No logs found for this project.{" "}
+              <Link
+                href={`/projects/${projectId}/logs/upload`}
+                className="text-white underline"
+              >
+                Upload your first logs
+              </Link>
+              .
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -85,30 +87,22 @@ export default async function ProjectLogsPage({
                     <th className="px-6 py-4 font-medium">Timestamp</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   {logs.map((log) => (
-                    <tr key={log.id} className="border-b border-slate-800">
+                    <tr key={log.id} className="border-b border-slate-800 last:border-0">
                       <td className="px-6 py-4">
                         <span
-                          className={`rounded-full border px-3 py-1 text-xs font-medium ${getLevelClass(
-                            log.level
-                          )}`}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${getLevelClass(log.level)}`}
                         >
                           {log.level}
                         </span>
                       </td>
-
-                      <td className="px-6 py-4 text-slate-300">
-                        {log.source}
-                      </td>
-
-                      <td className="px-6 py-4 text-slate-300">
+                      <td className="px-6 py-4 text-slate-300">{log.source}</td>
+                      <td className="max-w-md px-6 py-4 text-slate-300">
                         {log.message}
                       </td>
-
-                      <td className="px-6 py-4 text-slate-400">
-                        {log.timestamp}
+                      <td className="whitespace-nowrap px-6 py-4 text-slate-400">
+                        {new Date(log.timestamp).toLocaleString()}
                       </td>
                     </tr>
                   ))}

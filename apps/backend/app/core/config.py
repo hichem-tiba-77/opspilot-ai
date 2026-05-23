@@ -1,18 +1,24 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
     DB_HOST: str = "mysql"
     DB_PORT: int = 3306
     DB_USER: str = "opspilot"
     DB_PASSWORD: str = "opspilot_secret"
     DB_NAME: str = "opspilot"
 
-    JWT_SECRET: str = "change_me_in_production"
+    JWT_SECRET: str = "change_me_to_a_long_random_string_in_production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60
 
     APP_ENV: str = "development"
+
+    ANTHROPIC_API_KEY: str = ""
+
+    CORS_ORIGINS: str = "http://localhost:3000"
 
     @property
     def DATABASE_URL(self) -> str:
@@ -21,8 +27,9 @@ class Settings(BaseSettings):
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
 
-    class Config:
-        env_file = ".env"
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
 
 settings = Settings()

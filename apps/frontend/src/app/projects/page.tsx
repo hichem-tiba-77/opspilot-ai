@@ -1,6 +1,15 @@
 import Link from "next/link";
 import { ProjectCard } from "@/components/ProjectCard";
-import { getProjects } from "@/lib/api";
+import { serverFetch } from "@/lib/api-server";
+import type { Project } from "@/lib/api";
+
+async function getProjects(): Promise<Project[]> {
+  try {
+    return await serverFetch<Project[]>("/api/v1/projects");
+  } catch {
+    return [];
+  }
+}
 
 export default async function ProjectsPage() {
   const projects = await getProjects();
@@ -28,19 +37,30 @@ export default async function ProjectsPage() {
           </Link>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-3">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              id={project.id}
-              name={project.name}
-              description={project.description}
-              status={project.status}
-              logsCount={project.logsCount}
-              incidentsCount={project.incidentsCount}
-            />
-          ))}
-        </section>
+        {projects.length === 0 ? (
+          <section className="rounded-xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-400">
+            No projects yet.{" "}
+            <Link href="/projects/new" className="text-white underline">
+              Create your first project
+            </Link>{" "}
+            to get started.
+          </section>
+        ) : (
+          <section className="grid gap-6 lg:grid-cols-3">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                id={project.id}
+                name={project.name}
+                description={project.description}
+                status={project.status}
+                environment={project.environment}
+                logs_count={(project as Project & { logs_count?: number }).logs_count ?? 0}
+                incidents_count={(project as Project & { incidents_count?: number }).incidents_count ?? 0}
+              />
+            ))}
+          </section>
+        )}
       </div>
     </main>
   );
