@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,13 +8,18 @@ from app.core.database import Base, engine
 from app.models import user, project, log, incident  # noqa: F401
 from app.routers import all_incidents, analysis, auth, dashboard, incidents, logs, projects
 
-Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
-    title="OpsPilot AI — Backend",
+    title="OpsPilot AI - Backend",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

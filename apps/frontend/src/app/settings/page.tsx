@@ -60,15 +60,15 @@ export default function SettingsPage() {
             <div className="mt-6 space-y-4">
               <div>
                 <p className="text-sm text-slate-400">Provider</p>
-                <p className="mt-1 font-medium">Anthropic</p>
+                <p className="mt-1 font-medium">Google Gemini</p>
               </div>
               <div>
                 <p className="text-sm text-slate-400">Model</p>
-                <p className="mt-1 font-medium">claude-sonnet-4</p>
+                <p className="mt-1 font-medium">gemini-2.5-flash</p>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
                 AI secrets are stored in the backend environment variables
-                (<code className="text-slate-300">ANTHROPIC_API_KEY</code>).
+                (<code className="text-slate-300">GEMINI_API_KEY</code>).
                 They are never exposed to the frontend.
               </div>
             </div>

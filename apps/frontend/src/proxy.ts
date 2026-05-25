@@ -20,7 +20,7 @@ export function proxy(request: NextRequest) {
   // Redirect unauthenticated users to login
   if (!token && !isPublicPath) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    loginUrl.searchParams.set("redirect", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
 

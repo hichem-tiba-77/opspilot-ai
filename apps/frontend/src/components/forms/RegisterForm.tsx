@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 
 export function RegisterForm() {
@@ -13,7 +12,6 @@ export function RegisterForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { register } = useAuth();
-  const router = useRouter();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,10 +33,9 @@ export function RegisterForm() {
     setIsSubmitting(true);
     try {
       await register({ name, email, password });
-      router.push("/dashboard");
+      window.location.assign("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed.");
-    } finally {
       setIsSubmitting(false);
     }
   }

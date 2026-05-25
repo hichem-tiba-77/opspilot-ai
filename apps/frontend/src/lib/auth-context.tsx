@@ -29,22 +29,41 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+async function loadCurrentUser() {
+  try {
+    return await getCurrentUser();
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    try {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-    } catch {
-      setUser(null);
-    }
+    setUser(await loadCurrentUser());
   }, []);
 
   useEffect(() => {
-    refreshUser().finally(() => setIsLoading(false));
-  }, [refreshUser]);
+    let isMounted = true;
+
+    loadCurrentUser()
+      .then((currentUser) => {
+        if (isMounted) {
+          setUser(currentUser);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const login = async (input: LoginInput) => {
     await loginUser(input);

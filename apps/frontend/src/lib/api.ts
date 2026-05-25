@@ -4,34 +4,162 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_URL}${path}`;
-
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    ...options,
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `Request failed: ${res.status}`);
+function formatValidationLocation(loc: unknown): string {
+  if (!Array.isArray(loc)) {
+    return "";
   }
 
-  return res.json() as Promise<T>;
+  return loc
+    .filter((part) => part !== "body")
+    .map(String)
+    .join(".");
+}
+
+function formatApiErrorDetail(detail: unknown): string | null {
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+
+        const issue = item as { loc?: unknown; msg?: unknown };
+        const location = formatValidationLocation(issue.loc);
+        const message = typeof issue.msg === "string" ? issue.msg : null;
+
+        if (!message) {
+          return null;
+        }
+
+        return location ? `${location}: ${message}` : message;
+      })
+      .filter(Boolean);
+
+    return messages.length > 0 ? messages.join("; ") : null;
+  }
+
+  if (detail && typeof detail === "object") {
+    const body = detail as {
+      detail?: unknown;
+      error?: unknown;
+      message?: unknown;
+      msg?: unknown;
+    };
+
+    return (
+      formatApiErrorDetail(body.detail) ??
+      (typeof body.error === "string" ? body.error : null) ??
+      (typeof body.message === "string" ? body.message : null) ??
+      (typeof body.msg === "string" ? body.msg : null)
+    );
+  }
+
+  return null;
+}
+
+async function parseResponseBody(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const url = `${API_URL}${path}`;
+  const { headers, ...fetchOptions } = options;
+  const mergedHeaders = new Headers(headers);
+  mergedHeaders.set("Content-Type", "application/json");
+
+  const res = await fetch(url, {
+    ...fetchOptions,
+    headers: mergedHeaders,
+  });
+  const body = await parseResponseBody(res);
+
+  if (!res.ok) {
+    throw new Error(
+      formatApiErrorDetail(body) ?? `Request failed: ${res.status}`
+    );
+  }
+
+  return body as T;
 }
 
 // ── Token helpers ────────────────────────────────────────────────────────────
-// Token is stored in sessionStorage (set at login) AND as a cookie (for SSR middleware).
-// sessionStorage is always readable synchronously; cookies may not be if Secure flag is set.
+// Token is stored in sessionStorage for client fetches and in a cookie for
+// Next.js proxy/server-rendered routes. Keep both writes synchronous so the
+// first navigation after login cannot outrun cookie persistence.
+
+const AUTH_TOKEN_KEY = "auth_token";
+const DEFAULT_TOKEN_MAX_AGE_SECONDS = 60 * 60;
+
+function getTokenMaxAgeSeconds(token: string): number {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) {
+      return DEFAULT_TOKEN_MAX_AGE_SECONDS;
+    }
+
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      Math.ceil(normalizedPayload.length / 4) * 4,
+      "="
+    );
+    const decodedPayload = JSON.parse(atob(paddedPayload)) as {
+      exp?: unknown;
+    };
+
+    if (typeof decodedPayload.exp !== "number") {
+      return DEFAULT_TOKEN_MAX_AGE_SECONDS;
+    }
+
+    const secondsUntilExpiry = Math.floor(decodedPayload.exp - Date.now() / 1000);
+    return Math.max(secondsUntilExpiry, 0);
+  } catch {
+    return DEFAULT_TOKEN_MAX_AGE_SECONDS;
+  }
+}
+
+function shouldUseSecureCookie(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_SECURE_COOKIES === "true" &&
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:"
+  );
+}
+
+function writeAuthCookie(token: string): void {
+  const maxAge = getTokenMaxAgeSeconds(token);
+  const secure = shouldUseSecureCookie() ? "; Secure" : "";
+  document.cookie = `${AUTH_TOKEN_KEY}=${encodeURIComponent(
+    token
+  )}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+}
+
+function deleteAuthCookie(): void {
+  const secure = shouldUseSecureCookie() ? "; Secure" : "";
+  document.cookie = `${AUTH_TOKEN_KEY}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   // Primary: sessionStorage (fast, synchronous, no Secure-flag issues)
-  const stored = sessionStorage.getItem("auth_token");
-  if (stored) return stored;
+  try {
+    const stored = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (stored) return stored;
+  } catch {
+    // Fall back to the cookie below.
+  }
   // Fallback: cookie (for SSR cookie read via proxy.ts)
   const match = document.cookie.match(/(?:^|; )auth_token=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : null;
@@ -39,13 +167,23 @@ export function getToken(): string | null {
 
 export function setToken(token: string): void {
   if (typeof window !== "undefined") {
-    sessionStorage.setItem("auth_token", token);
+    writeAuthCookie(token);
+    try {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    } catch {
+      // The cookie is the source of truth for protected route access.
+    }
   }
 }
 
 export function clearToken(): void {
   if (typeof window !== "undefined") {
-    sessionStorage.removeItem("auth_token");
+    deleteAuthCookie();
+    try {
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    } catch {
+      // Cookie removal above is enough to lock protected routes again.
+    }
   }
 }
 
@@ -82,14 +220,6 @@ export async function loginUser(
     body: JSON.stringify(input),
   });
 
-  // Store token in cookie (for SSR proxy middleware)
-  await fetch("/api/auth", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: data.access_token }),
-  });
-
-  // Also store in sessionStorage for immediate client-side use
   setToken(data.access_token);
 
   return data;
@@ -106,14 +236,6 @@ export async function registerUser(
     }
   );
 
-  // Store token in cookie (for SSR proxy middleware)
-  await fetch("/api/auth", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: data.access_token }),
-  });
-
-  // Also store in sessionStorage for immediate client-side use
   setToken(data.access_token);
 
   return data;
@@ -130,7 +252,6 @@ export async function getCurrentUser(): Promise<UserInfo | null> {
 }
 
 export async function logoutUser(): Promise<void> {
-  await fetch("/api/auth", { method: "DELETE" });
   clearToken();
 }
 

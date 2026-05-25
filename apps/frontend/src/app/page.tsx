@@ -20,6 +20,7 @@ export default function HomePage() {
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">
           <Link
             href="/dashboard"
+            prefetch={false}
             className="rounded-lg bg-white px-6 py-3 font-medium text-slate-950 transition hover:bg-slate-200"
           >
             Open Dashboard
@@ -27,6 +28,7 @@ export default function HomePage() {
 
           <Link
             href="/projects"
+            prefetch={false}
             className="rounded-lg border border-slate-700 px-6 py-3 font-medium text-white transition hover:bg-slate-900"
           >
             View Projects

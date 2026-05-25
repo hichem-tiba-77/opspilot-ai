@@ -2,8 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+
+function getSafeRedirectPath(redirect: string | null): string {
+  if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) {
+    return "/dashboard";
+  }
+
+  return redirect;
+}
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -12,7 +20,6 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -31,11 +38,10 @@ export function LoginForm() {
     setIsSubmitting(true);
     try {
       await login({ email, password });
-      const redirect = searchParams.get("redirect") ?? "/dashboard";
-      router.push(redirect);
+      const redirect = getSafeRedirectPath(searchParams.get("redirect"));
+      window.location.assign(redirect);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");
-    } finally {
       setIsSubmitting(false);
     }
   }

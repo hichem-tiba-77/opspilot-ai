@@ -1,4 +1,4 @@
-name: BACKEND CI
+name: Backend CI
 
 on:
   push:
@@ -8,18 +8,44 @@ on:
     paths:
       - "apps/backend/**"
       - ".github/workflows/backend-ci.yml"
+      - "docker-compose.yml"
   pull_request:
     branches:
       - main
       - dev
     paths:
-      - "apps/frontend/**"
-      - ".github/workflows/frontend-ci.yml"
+      - "apps/backend/**"
+      - ".github/workflows/backend-ci.yml"
 
 jobs:
-  backend-ci:
-    name: Lint, verify and build
+  backend-checks:
+    name: Build and validate backend
     runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: apps/backend
     steps:
-      - 
-  
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/backend/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check dependencies
+        run: python -m pip check
+
+      - name: Compile backend
+        run: python -m compileall app
+
+      - name: Import FastAPI app
+        run: python -c "from app.main import app; print(app.title)"
+
+      - name: Build backend Docker image
+        run: docker build -t opspilot-backend .

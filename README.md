@@ -23,7 +23,7 @@ opspilot-ai/
 ```bash
 # Copy and configure secrets
 cp apps/backend/.env.example apps/backend/.env
-# Edit .env and add your ANTHROPIC_API_KEY
+# Optional: edit .env and add your GEMINI_API_KEY from Google AI Studio
 
 # Start all services (MySQL + backend + frontend)
 docker-compose up --build
@@ -91,8 +91,11 @@ npm run dev
 | `DB_NAME` | Database name | `opspilot` |
 | `JWT_SECRET` | JWT signing secret | *(change this!)* |
 | `JWT_EXPIRE_MINUTES` | Token expiry | `60` |
-| `ANTHROPIC_API_KEY` | Anthropic API key for AI analysis | *(optional — falls back to mock)* |
+| `GEMINI_API_KEY` | Google AI Studio Gemini API key for AI analysis | *(optional - falls back to mock)* |
+| `GEMINI_MODEL` | Gemini model used for AI analysis | `gemini-2.5-flash` |
 | `CORS_ORIGINS` | Allowed frontend origins (comma-separated) | `http://localhost:3000` |
+
+Create a free testing key at https://aistudio.google.com/app/apikey and paste it into `GEMINI_API_KEY`.
 
 ### Frontend (`apps/frontend/.env.local`)
 

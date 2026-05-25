@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     DB_HOST: str = "mysql"
     DB_PORT: int = 3306
@@ -16,7 +16,8 @@ class Settings(BaseSettings):
 
     APP_ENV: str = "development"
 
-    ANTHROPIC_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     CORS_ORIGINS: str = "http://localhost:3000"
 
