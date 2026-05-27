@@ -26,15 +26,14 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - ./apps/backend/.env
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: opspilot
       DB_PASSWORD: opspilot_secret
       DB_NAME: opspilot
-      JWT_SECRET: ${JWT_SECRET:-change_me_to_a_long_random_string_in_production}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       CORS_ORIGINS: http://localhost:3000
     depends_on:
       mysql:

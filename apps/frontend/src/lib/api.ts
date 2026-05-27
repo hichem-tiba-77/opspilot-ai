@@ -339,18 +339,27 @@ export async function uploadProjectLogs(
 
 // ── AI Analysis ───────────────────────────────────────────────────────────────
 
+export type AnalysisConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type AnalysisResult = {
+  answer: string;
+  provider: string;
+  model: string;
+};
+
 export async function analyzeProjectLogs(
   projectId: string,
-  question: string
-): Promise<{ answer: string }> {
-  return apiFetch<{ answer: string }>(
-    `/api/v1/projects/${projectId}/analysis`,
-    {
-      method: "POST",
-      headers: authHeader(),
-      body: JSON.stringify({ question }),
-    }
-  );
+  question: string,
+  history: AnalysisConversationMessage[] = []
+): Promise<AnalysisResult> {
+  return apiFetch<AnalysisResult>(`/api/v1/projects/${projectId}/analysis`, {
+    method: "POST",
+    headers: authHeader(),
+    body: JSON.stringify({ question, history }),
+  });
 }
 
 // ── Incidents ─────────────────────────────────────────────────────────────────

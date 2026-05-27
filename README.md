@@ -23,7 +23,7 @@ opspilot-ai/
 ```bash
 # Copy and configure secrets
 cp apps/backend/.env.example apps/backend/.env
-# Optional: edit .env and add your GEMINI_API_KEY from Google AI Studio
+# Edit apps/backend/.env and add your GEMINI_API_KEY from Google AI Studio
 
 # Start all services (MySQL + backend + frontend)
 docker-compose up --build
@@ -91,11 +91,20 @@ npm run dev
 | `DB_NAME` | Database name | `opspilot` |
 | `JWT_SECRET` | JWT signing secret | *(change this!)* |
 | `JWT_EXPIRE_MINUTES` | Token expiry | `60` |
-| `GEMINI_API_KEY` | Google AI Studio Gemini API key for AI analysis | *(optional - falls back to mock)* |
+| `GEMINI_API_KEY` | Google AI Studio Gemini API key for AI analysis | *(required for Ask AI)* |
 | `GEMINI_MODEL` | Gemini model used for AI analysis | `gemini-2.5-flash` |
+| `GEMINI_MAX_OUTPUT_TOKENS` | Gemini response length budget for detailed answers | `4096` |
 | `CORS_ORIGINS` | Allowed frontend origins (comma-separated) | `http://localhost:3000` |
 
 Create a free testing key at https://aistudio.google.com/app/apikey and paste it into `GEMINI_API_KEY`.
+
+For Docker, `docker-compose.yml` loads `apps/backend/.env` into the backend
+container. If you add or change `GEMINI_API_KEY` while containers are already
+running, recreate the backend container so it picks up the new environment:
+
+```bash
+docker-compose up -d --force-recreate backend
+```
 
 ### Frontend (`apps/frontend/.env.local`)
 

@@ -1,10 +1,11 @@
 import json
+from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -16,31 +17,77 @@ from app.models.user import User
 router = APIRouter(prefix="/projects/{project_id}/analysis", tags=["analysis"])
 
 
+class ConversationMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class AnalysisRequest(BaseModel):
     question: str
+    history: list[ConversationMessage] = Field(default_factory=list)
 
 
 class AnalysisResponse(BaseModel):
     answer: str
+    provider: str
+    model: str
 
 
-def build_analysis_prompt(project_name: str, environment: str, logs: list[Log], question: str) -> str:
+def format_conversation_history(history: list[ConversationMessage]) -> str:
+    if not history:
+        return "No previous conversation in this chat."
+
+    recent_history = history[-10:]
+    formatted_messages = []
+    for message in recent_history:
+        role = "Engineer" if message.role == "user" else "OpsPilot AI"
+        content = message.content.strip()
+        if len(content) > 2500:
+            content = f"{content[:2500]}\n[truncated]"
+        formatted_messages.append(f"{role}: {content}")
+
+    return "\n\n".join(formatted_messages)
+
+
+def build_analysis_prompt(
+    project_name: str,
+    environment: str,
+    logs: list[Log],
+    question: str,
+    history: list[ConversationMessage],
+) -> str:
     logs_text = "\n".join(
         f"[{log.timestamp}] [{log.level}] [{log.source}] {log.message}"
         for log in logs
     )
+    conversation_history = format_conversation_history(history)
 
     return f"""You are an expert DevOps engineer and site reliability engineer (SRE).
 You are analyzing logs for a project called "{project_name}" running in {environment}.
+
+Previous conversation:
+{conversation_history}
 
 Here are the most recent logs:
 
 {logs_text}
 
-The engineer is asking: {question}
+Current engineer question: {question}
 
-Provide a clear, structured answer. If you see errors or patterns, explain what they mean
-and suggest concrete next steps to investigate or fix the issue."""
+Write a detailed, evidence-based explanation. Do not give a generic summary.
+Use the logs and previous chat context, call out exact clues, and explain your reasoning.
+
+Format the answer with these sections:
+1. Short conclusion
+2. What the logs are showing
+3. Most likely root cause
+4. Evidence from the logs
+5. What to check next
+6. Fix plan
+7. Commands or checks to run
+
+If the evidence is incomplete, say what is uncertain and what data would prove or disprove it.
+Prefer a long, practical answer with concrete investigation steps over a short response."""
 
 
 def extract_gemini_text(data: dict) -> str | None:
@@ -76,7 +123,7 @@ def read_gemini_error(error: HTTPError) -> str:
 
 def analyze_with_gemini(prompt: str) -> str:
     model = quote(settings.GEMINI_MODEL.removeprefix("models/"), safe="")
-    query = urlencode({"key": settings.GEMINI_API_KEY})
+    query = urlencode({"key": settings.GEMINI_API_KEY.strip()})
     url = (
         "https://generativelanguage.googleapis.com/v1beta/"
         f"models/{model}:generateContent?{query}"
@@ -90,7 +137,7 @@ def analyze_with_gemini(prompt: str) -> str:
         ],
         "generationConfig": {
             "temperature": 0.2,
-            "maxOutputTokens": 1024,
+            "maxOutputTokens": settings.GEMINI_MAX_OUTPUT_TOKENS,
         },
     }
     request = Request(
@@ -125,51 +172,6 @@ def analyze_with_gemini(prompt: str) -> str:
     return answer
 
 
-def build_mock_analysis(project_name: str, environment: str, logs: list[Log], question: str) -> str:
-    error_count = sum(1 for log in logs if log.level == "ERROR")
-    warn_count = sum(1 for log in logs if log.level == "WARN")
-    info_count = sum(1 for log in logs if log.level == "INFO")
-    debug_count = sum(1 for log in logs if log.level == "DEBUG")
-
-    sources = sorted({log.source for log in logs})
-    error_messages = [log.message for log in logs if log.level == "ERROR"][:3]
-    error_detail = (
-        "\n".join(f"  - {msg}" for msg in error_messages)
-        if error_messages
-        else "  - None"
-    )
-    health = "Degraded" if error_count > 5 else "Healthy"
-    recommendation = (
-        "High error rate detected. Recommended actions:\n"
-        "  1. Check your database connection\n"
-        "  2. Review service dependencies\n"
-        "  3. Check available disk space and memory"
-        if error_count > 5
-        else "No critical issues detected in recent logs."
-    )
-
-    return f"""Analysis for project "{project_name}" ({environment})
-
-Your question: "{question}"
-
-Log summary (last {len(logs)} entries)
-  - Errors:   {error_count}
-  - Warnings: {warn_count}
-  - Info:     {info_count}
-  - Debug:    {debug_count}
-
-Sources detected: {", ".join(sources)}
-
-Most recent errors:
-{error_detail}
-
-Overall health: {health}
-
-{recommendation}
-
-To enable full AI-powered analysis, add GEMINI_API_KEY to apps/backend/.env."""
-
-
 @router.post("", response_model=AnalysisResponse)
 def analyze_logs(
     project_id: int,
@@ -198,16 +200,20 @@ def analyze_logs(
         environment=project.environment,
         logs=logs,
         question=body.question,
+        history=body.history,
     )
 
-    if settings.GEMINI_API_KEY:
-        return AnalysisResponse(answer=analyze_with_gemini(prompt))
+    if not settings.GEMINI_API_KEY.strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Gemini API key is not configured in the backend container. "
+                "Add GEMINI_API_KEY to apps/backend/.env, then recreate the backend container."
+            ),
+        )
 
     return AnalysisResponse(
-        answer=build_mock_analysis(
-            project_name=project.name,
-            environment=project.environment,
-            logs=logs,
-            question=body.question,
-        )
+        answer=analyze_with_gemini(prompt),
+        provider="gemini",
+        model=settings.GEMINI_MODEL,
     )

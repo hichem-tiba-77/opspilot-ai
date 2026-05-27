@@ -39,7 +39,7 @@ export default async function ProjectAIPage({ params }: ProjectAIPageProps) {
           </p>
         </header>
 
-        <AIAnalysisForm projectId={projectId} />
+        <AIAnalysisForm key={projectId} projectId={projectId} />
       </div>
     </main>
   );
