@@ -21,7 +21,7 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     environment: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(50), nullable=False, default="Healthy")
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="healthy")
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
@@ -29,5 +29,9 @@ class Project(Base):
     owner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
 
     owner: Mapped[User] = relationship("User", back_populates="projects")
-    logs: Mapped[List[Log]] = relationship("Log", back_populates="project")
-    incidents: Mapped[List[Incident]] = relationship("Incident", back_populates="project")
+    logs: Mapped[List[Log]] = relationship(
+        "Log", back_populates="project", cascade="all, delete-orphan"
+    )
+    incidents: Mapped[List[Incident]] = relationship(
+        "Incident", back_populates="project", cascade="all, delete-orphan"
+    )

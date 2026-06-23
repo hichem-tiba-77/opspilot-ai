@@ -5,7 +5,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -19,18 +19,35 @@ router = APIRouter(prefix="/projects/{project_id}/analysis", tags=["analysis"])
 
 class ConversationMessage(BaseModel):
     role: Literal["user", "assistant"]
-    content: str
+    content: str = Field(min_length=1, max_length=6000)
+
+    @field_validator("content")
+    @classmethod
+    def trim_content(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("Message content is required")
+        return trimmed
 
 
 class AnalysisRequest(BaseModel):
-    question: str
-    history: list[ConversationMessage] = Field(default_factory=list)
+    question: str = Field(min_length=3, max_length=2000)
+    history: list[ConversationMessage] = Field(default_factory=list, max_length=10)
+
+    @field_validator("question")
+    @classmethod
+    def trim_question(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("Question is required")
+        return trimmed
 
 
 class AnalysisResponse(BaseModel):
     answer: str
     provider: str
     model: str
+    thinking_mode: str
 
 
 def format_conversation_history(history: list[ConversationMessage]) -> str:
@@ -57,7 +74,7 @@ def build_analysis_prompt(
     history: list[ConversationMessage],
 ) -> str:
     logs_text = "\n".join(
-        f"[{log.timestamp}] [{log.level}] [{log.source}] {log.message}"
+        f"[{log.timestamp}] [{log.level}] [{log.source}] {log.message[:2000]}"
         for log in logs
     )
     conversation_history = format_conversation_history(history)
@@ -74,8 +91,10 @@ Here are the most recent logs:
 
 Current engineer question: {question}
 
-Write a detailed, evidence-based explanation. Do not give a generic summary.
-Use the logs and previous chat context, call out exact clues, and explain your reasoning.
+Write a detailed, evidence-based investigation. Do not give a generic summary.
+Use the logs and previous chat context, call out exact clues, connect symptoms to likely causes, and separate known facts from assumptions.
+Prioritize production-safe guidance: include blast radius, rollback criteria, validation checks, and monitoring signals.
+If multiple causes are plausible, rank them by likelihood and explain what evidence would confirm or rule out each one.
 
 Format the answer with these sections:
 1. Short conclusion
@@ -84,10 +103,37 @@ Format the answer with these sections:
 4. Evidence from the logs
 5. What to check next
 6. Fix plan
-7. Commands or checks to run
+7. Rollback or mitigation plan
+8. Commands or checks to run
+9. Confidence and missing evidence
 
 If the evidence is incomplete, say what is uncertain and what data would prove or disprove it.
 Prefer a long, practical answer with concrete investigation steps over a short response."""
+
+
+def is_gemini_three_model(model: str) -> bool:
+    normalized = model.removeprefix("models/").lower()
+    return normalized.startswith("gemini-3")
+
+
+def is_gemini_two_five_model(model: str) -> bool:
+    normalized = model.removeprefix("models/").lower()
+    return normalized.startswith("gemini-2.5")
+
+
+def build_thinking_config(model: str) -> tuple[dict[str, object], str]:
+    if is_gemini_three_model(model):
+        thinking_level = settings.GEMINI_THINKING_LEVEL.strip().lower()
+        if thinking_level not in {"low", "high"}:
+            thinking_level = "high"
+
+        return {"thinkingLevel": thinking_level}, f"thinkingLevel:{thinking_level}"
+
+    if is_gemini_two_five_model(model):
+        thinking_budget = settings.GEMINI_THINKING_BUDGET
+        return {"thinkingBudget": thinking_budget}, f"thinkingBudget:{thinking_budget}"
+
+    return {}, "default"
 
 
 def extract_gemini_text(data: dict) -> str | None:
@@ -122,12 +168,21 @@ def read_gemini_error(error: HTTPError) -> str:
 
 
 def analyze_with_gemini(prompt: str) -> str:
-    model = quote(settings.GEMINI_MODEL.removeprefix("models/"), safe="")
+    model_name = settings.GEMINI_MODEL.removeprefix("models/")
+    model = quote(model_name, safe="")
     query = urlencode({"key": settings.GEMINI_API_KEY.strip()})
     url = (
         "https://generativelanguage.googleapis.com/v1beta/"
         f"models/{model}:generateContent?{query}"
     )
+    thinking_config, _thinking_mode = build_thinking_config(model_name)
+    generation_config: dict[str, object] = {
+        "temperature": 0.15,
+        "maxOutputTokens": settings.GEMINI_MAX_OUTPUT_TOKENS,
+    }
+    if thinking_config:
+        generation_config["thinkingConfig"] = thinking_config
+
     payload = {
         "contents": [
             {
@@ -135,10 +190,7 @@ def analyze_with_gemini(prompt: str) -> str:
                 "parts": [{"text": prompt}],
             }
         ],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": settings.GEMINI_MAX_OUTPUT_TOKENS,
-        },
+        "generationConfig": generation_config,
     }
     request = Request(
         url,
@@ -148,25 +200,36 @@ def analyze_with_gemini(prompt: str) -> str:
     )
 
     try:
-        with urlopen(request, timeout=30) as response:
+        with urlopen(request, timeout=settings.GEMINI_TIMEOUT_SECONDS) as response:
             data = json.loads(response.read().decode("utf-8"))
+    except TimeoutError as error:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=(
+                "AI analysis took too long to respond. Please try again, "
+                "or ask a narrower question."
+            ),
+        ) from error
     except HTTPError as error:
         detail = read_gemini_error(error)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Gemini API error: {detail}",
+            detail=f"AI analysis service returned an upstream error: {detail}",
         ) from error
     except (URLError, TimeoutError, json.JSONDecodeError) as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Gemini service unavailable: {error}",
+            detail=(
+                "AI analysis service is temporarily unavailable. "
+                "Please try again in a moment."
+            ),
         ) from error
 
     answer = extract_gemini_text(data)
     if not answer:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Gemini returned no text response",
+            detail="AI analysis service returned no answer. Please try again.",
         )
 
     return answer
@@ -207,8 +270,8 @@ def analyze_logs(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Gemini API key is not configured in the backend container. "
-                "Add GEMINI_API_KEY to apps/backend/.env, then recreate the backend container."
+                "AI analysis is not configured in the backend container. "
+                "Add the AI API key to apps/backend/.env, then recreate the backend container."
             ),
         )
 
@@ -216,4 +279,5 @@ def analyze_logs(
         answer=analyze_with_gemini(prompt),
         provider="gemini",
         model=settings.GEMINI_MODEL,
+        thinking_mode=build_thinking_config(settings.GEMINI_MODEL)[1],
     )

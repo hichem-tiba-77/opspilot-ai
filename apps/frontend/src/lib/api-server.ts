@@ -1,16 +1,38 @@
 import { cookies } from "next/headers";
 
-// INTERNAL_API_URL is for server-side (SSR) requests inside Docker (e.g. http://backend:8000).
-// NEXT_PUBLIC_API_URL is the browser-visible URL (e.g. http://localhost:8000) — baked in at build time.
 const API_URL =
   process.env.INTERNAL_API_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:8000";
 
-/**
- * Server-side API fetcher that reads the auth token from cookies.
- * Use this in Server Components and Route Handlers.
- */
+async function readResponseBody(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function formatServerError(body: unknown, status: number): string {
+  if (typeof body === "string") {
+    return body;
+  }
+
+  if (body && typeof body === "object") {
+    const detail = (body as { detail?: unknown }).detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+  }
+
+  return `Request failed: ${status}`;
+}
+
 export async function serverFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -24,7 +46,7 @@ export async function serverFetch<T>(
   };
 
   if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(`${API_URL}${path}`, {
@@ -33,10 +55,11 @@ export async function serverFetch<T>(
     cache: "no-store",
   });
 
+  const body = await readResponseBody(res);
+
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `Request failed: ${res.status}`);
+    throw new Error(formatServerError(body, res.status));
   }
 
-  return res.json() as Promise<T>;
+  return body as T;
 }

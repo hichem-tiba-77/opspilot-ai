@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LogUploadForm } from "@/components/forms/LogUploadForm";
+import { PageShell } from "@/components/PageShell";
 import { serverFetch } from "@/lib/api-server";
 import type { ProjectDetail } from "@/lib/api";
 
@@ -21,30 +21,15 @@ export default async function UploadLogsPage({ params }: UploadLogsPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        <Link
-          href={`/projects/${projectId}/logs`}
-          className="text-sm font-medium text-slate-400 transition hover:text-white"
-        >
-          ← Back to logs
-        </Link>
-
-        <header className="mt-8">
-          <p className="text-sm font-medium text-slate-400">Upload Logs</p>
-
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">
-            Upload logs for {project.name}
-          </h1>
-
-          <p className="mt-3 text-slate-300">
-            Upload a log file or paste logs manually. Later, these logs will be
-            stored and analyzed by AI.
-          </p>
-        </header>
-
-        <LogUploadForm projectId={projectId} />
-      </div>
-    </main>
+    <PageShell
+      backHref={`/projects/${projectId}/logs`}
+      backLabel="Back to logs"
+      description="Upload a log file or paste logs manually. OpsPilot normalizes each line for triage and AI analysis."
+      eyebrow="Upload Logs"
+      maxWidth="narrow"
+      title={`Upload logs for ${project.name}`}
+    >
+      <LogUploadForm projectId={projectId} />
+    </PageShell>
   );
 }

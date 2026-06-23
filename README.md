@@ -92,11 +92,17 @@ npm run dev
 | `JWT_SECRET` | JWT signing secret | *(change this!)* |
 | `JWT_EXPIRE_MINUTES` | Token expiry | `60` |
 | `GEMINI_API_KEY` | Google AI Studio Gemini API key for AI analysis | *(required for Ask AI)* |
-| `GEMINI_MODEL` | Gemini model used for AI analysis | `gemini-2.5-flash` |
-| `GEMINI_MAX_OUTPUT_TOKENS` | Gemini response length budget for detailed answers | `4096` |
+| `GEMINI_MODEL` | Gemini model used for AI analysis | `gemini-3.5-flash` |
+| `GEMINI_MAX_OUTPUT_TOKENS` | Gemini response length budget for detailed answers | `8192` |
+| `GEMINI_THINKING_LEVEL` | Gemini 3+ reasoning effort (`low` or `high`) | `high` |
+| `GEMINI_THINKING_BUDGET` | Gemini 2.5 thinking budget (`-1` means dynamic) | `-1` |
 | `CORS_ORIGINS` | Allowed frontend origins (comma-separated) | `http://localhost:3000` |
 
 Create a free testing key at https://aistudio.google.com/app/apikey and paste it into `GEMINI_API_KEY`.
+
+For better answers, use `gemini-3.5-flash` as the stable default. For the deepest
+reasoning, you can try `gemini-3.1-pro-preview`, but preview models can have
+stricter limits and may change sooner than stable models.
 
 For Docker, `docker-compose.yml` loads `apps/backend/.env` into the backend
 container. If you add or change `GEMINI_API_KEY` while containers are already

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,9 +18,7 @@ def list_all_incidents(
     current_user: User = Depends(get_current_user),
 ):
     """List all incidents across all projects owned by the current user."""
-    user_project_ids = (
-        db.query(Project.id).filter(Project.owner_id == current_user.id).subquery()
-    )
+    user_project_ids = select(Project.id).where(Project.owner_id == current_user.id)
 
     return (
         db.query(Incident)
@@ -36,9 +35,7 @@ def get_incident_by_id(
     current_user: User = Depends(get_current_user),
 ):
     """Get a single incident by ID, verifying ownership via project."""
-    user_project_ids = (
-        db.query(Project.id).filter(Project.owner_id == current_user.id).subquery()
-    )
+    user_project_ids = select(Project.id).where(Project.owner_id == current_user.id)
 
     incident = (
         db.query(Incident)

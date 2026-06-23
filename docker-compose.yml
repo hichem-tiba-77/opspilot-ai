@@ -9,7 +9,7 @@ services:
       MYSQL_USER: opspilot
       MYSQL_PASSWORD: opspilot_secret
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -44,7 +44,7 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
-        # Used during Next.js static build — browser uses localhost:8000
+        # Used during Next.js static build; browser requests use localhost:8000.
         NEXT_PUBLIC_API_URL: http://localhost:8000
     container_name: opspilot-frontend
     ports:

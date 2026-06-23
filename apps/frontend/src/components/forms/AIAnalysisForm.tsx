@@ -1,14 +1,23 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Icon } from "@/components/Icon";
 import {
   analyzeProjectLogs,
   type AnalysisConversationMessage,
 } from "@/lib/api";
+import { capitalize, cn, formatDateTime } from "@/lib/utils";
 
 type AIAnalysisFormProps = {
   projectId: string;
+  projectName: string;
+  environment: string;
+  logsCount: number;
+  incidentsCount: number;
+  openIncidents: number;
+  lastLogAt?: string | null;
 };
 
 type ChatMessage = {
@@ -17,13 +26,40 @@ type ChatMessage = {
   content: string;
   createdAt: string;
   model?: string;
+  thinkingMode?: string;
 };
 
-const EXAMPLE_QUESTIONS = [
-  "Explain the root cause in detail.",
-  "What changed before the errors started?",
-  "Write a full incident report.",
-  "Give me a step-by-step fix plan.",
+type PromptPreset = {
+  label: string;
+  prompt: string;
+  icon: "alert" | "activity" | "terminal" | "logs" | "sparkles";
+};
+
+const PROMPT_PRESETS: PromptPreset[] = [
+  {
+    label: "Root cause",
+    icon: "activity",
+    prompt:
+      "Find the most likely root cause. Rank alternatives and cite the exact log evidence.",
+  },
+  {
+    label: "Mitigation",
+    icon: "alert",
+    prompt:
+      "Give me the safest mitigation plan, rollback criteria, and validation checks.",
+  },
+  {
+    label: "Incident report",
+    icon: "sparkles",
+    prompt:
+      "Write a concise incident report with impact, timeline, root cause, remediation, and follow-ups.",
+  },
+  {
+    label: "Commands",
+    icon: "terminal",
+    prompt:
+      "List the commands, dashboards, and checks I should run next, ordered by priority.",
+  },
 ];
 
 const HISTORY_LIMIT = 10;
@@ -72,12 +108,10 @@ function readStoredMessages(storageKey: string): ChatMessage[] {
 }
 
 function toApiHistory(messages: ChatMessage[]): AnalysisConversationMessage[] {
-  return messages
-    .slice(-HISTORY_LIMIT)
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
+  return messages.slice(-HISTORY_LIMIT).map((message) => ({
+    role: message.role,
+    content: message.content,
+  }));
 }
 
 function formatMessageTime(timestamp: string): string {
@@ -91,11 +125,29 @@ function formatMessageTime(timestamp: string): string {
   }
 }
 
-export function AIAnalysisForm({ projectId }: AIAnalysisFormProps) {
+function summarizeContent(content: string): string {
+  const firstLine = content.split("\n").find((line) => line.trim());
+  if (!firstLine) {
+    return "Investigation response";
+  }
+
+  return firstLine.length > 96 ? `${firstLine.slice(0, 96)}...` : firstLine;
+}
+
+export function AIAnalysisForm({
+  projectId,
+  projectName,
+  environment,
+  logsCount,
+  incidentsCount,
+  openIncidents,
+  lastLogAt,
+}: AIAnalysisFormProps) {
   const storageKey = `${STORAGE_KEY_PREFIX}:${projectId}`;
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState("");
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hydratedStorageKey, setHydratedStorageKey] = useState<string | null>(
     null
@@ -105,6 +157,13 @@ export function AIAnalysisForm({ projectId }: AIAnalysisFormProps) {
   const questionCount = messages.filter(
     (message) => message.role === "user"
   ).length;
+  const latestAssistantMessage = useMemo(
+    () =>
+      [...messages]
+        .reverse()
+        .find((message) => message.role === "assistant"),
+    [messages]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -136,16 +195,11 @@ export function AIAnalysisForm({ projectId }: AIAnalysisFormProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isAnalyzing]);
 
-  async function handleAnalyze() {
-    const trimmedQuestion = question.trim();
+  async function handleAnalyze(nextQuestion = question) {
+    const trimmedQuestion = nextQuestion.trim();
     setError("");
 
-    if (!trimmedQuestion) {
-      setError("Please ask a question before analyzing logs.");
-      return;
-    }
-
-    if (isAnalyzing) {
+    if (!trimmedQuestion || isAnalyzing) {
       return;
     }
 
@@ -173,6 +227,7 @@ export function AIAnalysisForm({ projectId }: AIAnalysisFormProps) {
         content: result.answer,
         createdAt: new Date().toISOString(),
         model: result.model || result.provider,
+        thinkingMode: result.thinking_mode,
       };
 
       setMessages((currentMessages) => [
@@ -195,171 +250,333 @@ export function AIAnalysisForm({ projectId }: AIAnalysisFormProps) {
     }
   }
 
+  async function handleCopyMessage(message: ChatMessage) {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      window.setTimeout(() => setCopiedMessageId(null), 1500);
+    } catch {
+      setError("Could not copy the answer.");
+    }
+  }
+
   function handleClearConversation() {
     setMessages([]);
     setError("");
+    setCopiedMessageId(null);
   }
 
   return (
-    <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-      <section className="flex min-h-[680px] flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900 xl:h-[760px]">
-        <div className="flex flex-col gap-3 border-b border-slate-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Conversation</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              {questionCount === 0
-                ? "No questions yet"
-                : `${questionCount} question${questionCount === 1 ? "" : "s"}`}
-            </p>
-          </div>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <section className="panel flex h-[calc(100dvh-22rem)] min-h-[26rem] max-h-[38rem] flex-col overflow-hidden xl:sticky xl:top-24">
+        <div className="border-b border-zinc-200 bg-white/70 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-lg bg-zinc-950 text-white">
+                <Icon name="bot" className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-zinc-950">
+                  Investigation console
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-zinc-500">
+                  {questionCount === 0
+                    ? "Ready"
+                    : `${questionCount} question${
+                        questionCount === 1 ? "" : "s"
+                      }`}
+                </p>
+              </div>
+            </div>
 
-          {messages.length > 0 && (
-            <button
-              type="button"
-              onClick={handleClearConversation}
-              className="w-fit rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
-            >
-              Clear
-            </button>
-          )}
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+                <p className="text-xs font-bold text-zinc-500">Logs</p>
+                <p className="mt-1 font-black text-zinc-950">
+                  {logsCount.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+                <p className="text-xs font-bold text-zinc-500">Open</p>
+                <p className="mt-1 font-black text-zinc-950">
+                  {openIncidents.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+                <p className="text-xs font-bold text-zinc-500">Env</p>
+                <p className="mt-1 truncate font-black text-zinc-950">
+                  {capitalize(environment)}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-50/40 px-4 py-5 sm:px-6">
           {messages.length === 0 && !isAnalyzing && (
-            <div className="flex h-full min-h-[280px] items-center justify-center">
-              <div className="max-w-md text-center">
-                <p className="text-xl font-semibold text-white">
-                  Ask for a real investigation.
-                </p>
-                <p className="mt-3 text-sm leading-6 text-slate-400">
-                  Gemini will use the latest project logs and the previous chat
-                  messages in this thread.
-                </p>
+            <div className="mx-auto flex min-h-[360px] max-w-3xl flex-col justify-center">
+              <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700">
+                    <Icon name="sparkles" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-zinc-950">
+                      Start with the question you would ask during an incident.
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-600">
+                      {projectName} has {logsCount.toLocaleString()} log
+                      {logsCount === 1 ? "" : "s"} available for analysis.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {PROMPT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setQuestion(preset.prompt)}
+                      className="group rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-left transition hover:border-emerald-300 hover:bg-white"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-black text-zinc-950">
+                        <Icon
+                          name={preset.icon}
+                          className="h-4 w-4 text-emerald-700"
+                        />
+                        {preset.label}
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-600">
+                        {preset.prompt}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          {messages.map((message) => {
-            const isUser = message.role === "user";
+          <div className="space-y-5">
+            {messages.map((message) => {
+              const isUser = message.role === "user";
 
-            return (
-              <article
-                key={message.id}
-                className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[88%] rounded-lg border px-4 py-3 shadow-sm ${
-                    isUser
-                      ? "border-cyan-400 bg-cyan-400 text-slate-950"
-                      : "border-slate-800 bg-slate-950 text-slate-200"
-                  }`}
+              return (
+                <article
+                  key={message.id}
+                  className={cn(
+                    "flex gap-3",
+                    isUser ? "justify-end" : "justify-start"
+                  )}
                 >
+                  {!isUser && (
+                    <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-zinc-950 text-white">
+                      <Icon name="bot" className="h-4 w-4" />
+                    </div>
+                  )}
+
                   <div
-                    className={`mb-2 flex items-center justify-between gap-4 text-xs ${
-                      isUser ? "text-slate-800" : "text-slate-500"
-                    }`}
+                    className={cn(
+                      "max-w-[min(100%,48rem)] rounded-lg border px-4 py-3 shadow-sm",
+                      isUser
+                        ? "border-emerald-700 bg-emerald-700 text-white"
+                        : "border-zinc-200 bg-white text-zinc-800"
+                    )}
                   >
-                    <span className="font-semibold">
-                      {isUser ? "You" : message.model || "Gemini"}
-                    </span>
-                    <time dateTime={message.createdAt}>
-                      {formatMessageTime(message.createdAt)}
-                    </time>
+                    <div
+                      className={cn(
+                        "mb-2 flex flex-wrap items-center justify-between gap-3 text-xs font-bold",
+                        isUser ? "text-emerald-50" : "text-zinc-500"
+                      )}
+                    >
+                      <span>
+                        {isUser ? "You" : message.model || "Gemini"}
+                        {!isUser && message.thinkingMode
+                          ? ` - ${message.thinkingMode}`
+                          : ""}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <time dateTime={message.createdAt}>
+                          {formatMessageTime(message.createdAt)}
+                        </time>
+                        {!isUser && (
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyMessage(message)}
+                            className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-black text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950"
+                          >
+                            {copiedMessageId === message.id ? "Copied" : "Copy"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="whitespace-pre-wrap break-words text-sm leading-7">
+                      {message.content}
+                    </div>
                   </div>
-                  <div className="whitespace-pre-wrap break-words text-sm leading-7">
-                    {message.content}
+                </article>
+              );
+            })}
+
+            {isAnalyzing && (
+              <article className="flex gap-3">
+                <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-zinc-950 text-white">
+                  <Icon name="bot" className="h-4 w-4" />
+                </div>
+                <div className="max-w-[min(100%,48rem)] rounded-lg border border-zinc-200 bg-white px-4 py-4 text-zinc-700 shadow-sm">
+                  <div className="mb-3 flex items-center gap-3 text-sm font-black">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-zinc-200 border-t-emerald-700" />
+                    Analyzing evidence
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-64 max-w-full animate-pulse rounded bg-zinc-200" />
+                    <div className="h-3 w-96 max-w-full animate-pulse rounded bg-zinc-200" />
+                    <div className="h-3 w-52 max-w-full animate-pulse rounded bg-zinc-200" />
                   </div>
                 </div>
               </article>
-            );
-          })}
+            )}
 
-          {isAnalyzing && (
-            <article className="flex justify-start">
-              <div className="max-w-[88%] rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-slate-300 shadow-sm">
-                <div className="mb-2 text-xs font-semibold text-slate-500">
-                  Gemini
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-cyan-300" />
-                  Building a detailed analysis...
-                </div>
-              </div>
-            </article>
-          )}
-
-          <div ref={bottomRef} />
+            <div ref={bottomRef} />
+          </div>
         </div>
 
-        <div className="border-t border-slate-800 bg-slate-950/60 p-4">
+        <div className="border-t border-zinc-200 bg-white p-3 shadow-[0_-18px_40px_rgba(16,24,40,0.08)] sm:p-4">
           {error && (
-            <div className="mb-3 rounded-lg border border-red-900 bg-red-950 px-4 py-3 text-sm leading-6 text-red-200">
+            <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold leading-6 text-rose-700">
               {error}
             </div>
           )}
 
-          <label
-            htmlFor="question"
-            className="block text-sm font-medium text-slate-300"
-          >
-            Ask OpsPilot AI
-          </label>
-          <textarea
-            id="question"
-            rows={3}
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            onKeyDown={handleComposerKeyDown}
-            placeholder="Example: Explain the root cause and give me the fix plan."
-            className="mt-2 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300"
-          />
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2">
+            <textarea
+              id="question"
+              rows={2}
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder="Ask a follow-up, request commands, or turn this into an incident report."
+              className="max-h-36 min-h-16 w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 text-zinc-950 outline-none placeholder:text-zinc-500"
+            />
 
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-500">
-              Detailed answers use recent logs and this conversation.
-            </p>
-            <button
-              type="button"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || !question.trim()}
-              className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isAnalyzing ? "Analyzing..." : "Ask Gemini"}
-            </button>
+            <div className="flex flex-col gap-3 border-t border-zinc-200 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="no-scrollbar flex gap-2 overflow-x-auto">
+                {PROMPT_PRESETS.slice(0, 3).map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setQuestion(preset.prompt)}
+                    className="shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-black text-zinc-600 transition hover:text-zinc-950"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearConversation}
+                    className="btn-secondary min-h-10 px-3"
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleAnalyze()}
+                  disabled={isAnalyzing || !question.trim()}
+                  className="btn-primary min-h-10 px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Icon name="sparkles" className="h-4 w-4" />
+                  Ask AI
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+
       </section>
 
-      <aside className="space-y-6">
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-5">
-          <h3 className="text-sm font-semibold uppercase text-slate-400">
-            Example Questions
-          </h3>
+      <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+        <section className="panel p-5">
+          <div className="flex items-center gap-2">
+            <Icon name="activity" className="h-5 w-5 text-emerald-700" />
+            <h3 className="text-lg font-black text-zinc-950">Briefing</h3>
+          </div>
 
-          <div className="mt-4 flex flex-col gap-2">
-            {EXAMPLE_QUESTIONS.map((exampleQuestion) => (
+          <dl className="mt-5 grid gap-3">
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              <dt className="text-xs font-bold uppercase tracking-[0.08em] text-zinc-500">
+                Latest log
+              </dt>
+              <dd className="mt-1 text-sm font-black text-zinc-950">
+                {formatDateTime(lastLogAt)}
+              </dd>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <dt className="text-xs font-bold text-zinc-500">Incidents</dt>
+                <dd className="mt-1 text-2xl font-black text-zinc-950">
+                  {incidentsCount.toLocaleString()}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <dt className="text-xs font-bold text-zinc-500">Open</dt>
+                <dd className="mt-1 text-2xl font-black text-zinc-950">
+                  {openIncidents.toLocaleString()}
+                </dd>
+              </div>
+            </div>
+          </dl>
+        </section>
+
+        <section className="panel p-5">
+          <h3 className="text-sm font-black uppercase tracking-[0.08em] text-zinc-500">
+            Presets
+          </h3>
+          <div className="mt-4 space-y-2">
+            {PROMPT_PRESETS.map((preset) => (
               <button
-                key={exampleQuestion}
+                key={preset.label}
                 type="button"
-                onClick={() => setQuestion(exampleQuestion)}
-                className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 text-left text-sm leading-5 text-slate-300 transition hover:border-cyan-400 hover:text-white"
+                onClick={() => setQuestion(preset.prompt)}
+                className="flex w-full items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-emerald-300 hover:bg-white"
               >
-                {exampleQuestion}
+                <Icon
+                  name={preset.icon}
+                  className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+                />
+                <span>
+                  <span className="block text-sm font-black text-zinc-950">
+                    {preset.label}
+                  </span>
+                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-600">
+                    {preset.prompt}
+                  </span>
+                </span>
               </button>
             ))}
           </div>
         </section>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-5">
-          <h3 className="text-sm font-semibold uppercase text-slate-400">
-            Answer Depth
-          </h3>
-          <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
-            <p>Full diagnostic explanation</p>
-            <p>Root-cause evidence from logs</p>
-            <p>Fix plan and command checklist</p>
-            <p>Previous chat context included</p>
+        <section className="panel p-5">
+          <div className="flex items-center gap-2">
+            <Icon name="logs" className="h-5 w-5 text-cyan-700" />
+            <h3 className="text-lg font-black text-zinc-950">Latest answer</h3>
           </div>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">
+            {latestAssistantMessage
+              ? summarizeContent(latestAssistantMessage.content)
+              : "No answer yet."}
+          </p>
+          <Link
+            href={`/projects/${projectId}/logs`}
+            className="btn-secondary mt-5 w-full"
+          >
+            Open logs
+            <Icon name="arrow-right" className="h-4 w-4" />
+          </Link>
         </section>
       </aside>
     </div>

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AIAnalysisForm } from "@/components/forms/AIAnalysisForm";
+import { Icon } from "@/components/Icon";
+import { PageShell } from "@/components/PageShell";
 import { serverFetch } from "@/lib/api-server";
 import type { ProjectDetail } from "@/lib/api";
 
@@ -19,28 +21,38 @@ export default async function ProjectAIPage({ params }: ProjectAIPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <Link
-          href={`/projects/${projectId}`}
-          className="text-sm font-medium text-slate-400 transition hover:text-white"
-        >
-          ← Back to project
-        </Link>
-
-        <header className="mt-8">
-          <p className="text-sm font-medium text-slate-400">AI Analysis</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">
-            Ask AI about {project.name}
-          </h1>
-          <p className="mt-3 max-w-2xl text-slate-300">
-            Ask questions about this project&apos;s logs, incidents, errors, and
-            possible root causes.
-          </p>
-        </header>
-
-        <AIAnalysisForm key={projectId} projectId={projectId} />
-      </div>
-    </main>
+    <PageShell
+      actions={
+        <>
+          <Link href={`/projects/${projectId}/logs`} className="btn-secondary">
+            <Icon name="logs" className="h-4 w-4" />
+            Logs
+          </Link>
+          <Link
+            href={`/projects/${projectId}/logs/upload`}
+            className="btn-primary"
+          >
+            <Icon name="upload" className="h-4 w-4" />
+            Upload
+          </Link>
+        </>
+      }
+      backHref={`/projects/${projectId}`}
+      backLabel="Back to project"
+      description="Turn logs into a focused root-cause investigation, mitigation plan, and incident-ready summary."
+      eyebrow="AI Analysis"
+      title={`Ask AI about ${project.name}`}
+    >
+      <AIAnalysisForm
+        key={projectId}
+        environment={project.environment}
+        incidentsCount={project.incidents_count}
+        lastLogAt={project.last_log_at}
+        logsCount={project.logs_count}
+        openIncidents={project.open_incidents ?? 0}
+        projectId={projectId}
+        projectName={project.name}
+      />
+    </PageShell>
   );
 }

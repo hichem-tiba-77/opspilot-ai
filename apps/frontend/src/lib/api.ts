@@ -270,7 +270,11 @@ export type Project = {
 export type ProjectDetail = Project & {
   logs_count: number;
   incidents_count: number;
+  open_incidents?: number;
+  last_log_at?: string | null;
 };
+
+export type ProjectSummary = ProjectDetail;
 
 export type CreateProjectInput = {
   name: string;
@@ -278,8 +282,8 @@ export type CreateProjectInput = {
   environment: string;
 };
 
-export async function getProjects(): Promise<Project[]> {
-  return apiFetch<Project[]>("/api/v1/projects", {
+export async function getProjects(): Promise<ProjectSummary[]> {
+  return apiFetch<ProjectSummary[]>("/api/v1/projects", {
     headers: authHeader(),
   });
 }
@@ -348,6 +352,7 @@ export type AnalysisResult = {
   answer: string;
   provider: string;
   model: string;
+  thinking_mode?: string;
 };
 
 export async function analyzeProjectLogs(

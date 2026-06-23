@@ -41,81 +41,76 @@ export function RegisterForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-8 space-y-6 rounded-xl border border-slate-800 bg-slate-900 p-6"
-    >
+    <form onSubmit={handleSubmit} className="panel space-y-6 p-6">
       {error && (
-        <div className="rounded-lg border border-red-900 bg-red-950 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
           {error}
         </div>
       )}
 
       <div>
-        <label
-          htmlFor="name"
-          className="block text-sm font-medium text-slate-300"
-        >
+        <label htmlFor="name" className="label">
           Name
         </label>
         <input
           id="name"
           name="name"
           type="text"
+          autoComplete="name"
+          required
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(event) => setName(event.target.value)}
           placeholder="Your name"
-          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
+          className="field mt-2"
         />
       </div>
 
       <div>
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-slate-300"
-        >
+        <label htmlFor="email" className="label">
           Email
         </label>
         <input
           id="email"
           name="email"
           type="email"
+          autoComplete="email"
+          required
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
-          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
+          className="field mt-2"
         />
       </div>
 
       <div>
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-slate-300"
-        >
+        <label htmlFor="password" className="label">
           Password
         </label>
         <input
           id="password"
           name="password"
           type="password"
+          autoComplete="new-password"
+          minLength={8}
+          required
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(event) => setPassword(event.target.value)}
           placeholder="At least 8 characters"
-          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
+          className="field mt-2"
         />
       </div>
 
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? "Creating account…" : "Create Account"}
+        {isSubmitting ? "Creating account..." : "Create account"}
       </button>
 
-      <p className="text-center text-sm text-slate-400">
+      <p className="text-center text-sm text-zinc-600">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-white hover:underline">
+        <Link href="/login" className="font-bold text-zinc-950 hover:underline">
           Login
         </Link>
       </p>

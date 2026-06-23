@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -26,9 +26,7 @@ def get_dashboard_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    user_project_ids = (
-        db.query(Project.id).filter(Project.owner_id == current_user.id).subquery()
-    )
+    user_project_ids = select(Project.id).where(Project.owner_id == current_user.id)
 
     projects_count = (
         db.query(func.count(Project.id))
@@ -77,9 +75,7 @@ def get_recent_incidents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    user_project_ids = (
-        db.query(Project.id).filter(Project.owner_id == current_user.id).subquery()
-    )
+    user_project_ids = select(Project.id).where(Project.owner_id == current_user.id)
 
     return (
         db.query(Incident)

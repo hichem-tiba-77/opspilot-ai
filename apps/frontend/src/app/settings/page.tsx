@@ -1,7 +1,38 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/Icon";
+import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/lib/auth-context";
+
+function Toggle({
+  checked,
+  description,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  description: string;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+      <span>
+        <span className="block font-bold text-zinc-950">{label}</span>
+        <span className="mt-1 block text-sm leading-6 text-zinc-600">
+          {description}
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-5 w-5 accent-emerald-700"
+      />
+    </label>
+  );
+}
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -9,129 +40,126 @@ export default function SettingsPage() {
   const [aiReportAlerts, setAiReportAlerts] = useState(false);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <header className="mb-10">
-          <p className="text-sm font-medium text-slate-400">Settings</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">
-            Workspace Settings
-          </h1>
-          <p className="mt-3 max-w-2xl text-slate-300">
-            Manage account preferences, AI configuration, notifications, and API
-            settings for OpsPilot AI.
-          </p>
-        </header>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          {/* Profile */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-semibold">Profile</h2>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <p className="text-sm text-slate-400">Name</p>
-                <p className="mt-1 font-medium">
-                  {user?.name ?? "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Email</p>
-                <p className="mt-1 font-medium">
-                  {user?.email ?? "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Account Status</p>
-                <p className="mt-1 font-medium">
-                  {user?.is_active ? (
-                    <span className="text-emerald-400">Active</span>
-                  ) : (
-                    <span className="text-red-400">Inactive</span>
-                  )}
-                </p>
-              </div>
-            </div>
+    <PageShell
+      description="Manage account preferences, AI configuration, notifications, and API settings for this workspace."
+      eyebrow="Settings"
+      title="Workspace settings"
+    >
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div className="panel p-5">
+          <div className="flex items-center gap-2">
+            <Icon name="user" className="h-5 w-5 text-emerald-700" />
+            <h2 className="text-xl font-black text-zinc-950">Profile</h2>
           </div>
 
-          {/* AI Provider */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-semibold">AI Provider</h2>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <p className="text-sm text-slate-400">Provider</p>
-                <p className="mt-1 font-medium">Google Gemini</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Model</p>
-                <p className="mt-1 font-medium">gemini-2.5-flash</p>
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
-                AI secrets are stored in the backend environment variables
-                (<code className="text-slate-300">GEMINI_API_KEY</code>).
-                They are never exposed to the frontend.
-              </div>
+          <dl className="mt-6 grid gap-4">
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">Name</dt>
+              <dd className="mt-1 font-black text-zinc-950">
+                {user?.name ?? "-"}
+              </dd>
             </div>
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">Email</dt>
+              <dd className="mt-1 break-all font-black text-zinc-950">
+                {user?.email ?? "-"}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">
+                Account status
+              </dt>
+              <dd className="mt-1 font-black">
+                {user?.is_active ? (
+                  <span className="text-emerald-700">Active</span>
+                ) : (
+                  <span className="text-rose-700">Inactive</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="panel p-5">
+          <div className="flex items-center gap-2">
+            <Icon name="bot" className="h-5 w-5 text-cyan-700" />
+            <h2 className="text-xl font-black text-zinc-950">AI provider</h2>
           </div>
 
-          {/* Notifications */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-semibold">Notifications</h2>
-
-            <div className="mt-6 space-y-4">
-              <label className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <span>
-                  <span className="block font-medium">Incident alerts</span>
-                  <span className="text-sm text-slate-400">
-                    Notify when a new incident is detected.
-                  </span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={incidentAlerts}
-                  onChange={(e) => setIncidentAlerts(e.target.checked)}
-                  className="h-4 w-4"
-                />
-              </label>
-
-              <label className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <span>
-                  <span className="block font-medium">AI report alerts</span>
-                  <span className="text-sm text-slate-400">
-                    Notify when an AI report is generated.
-                  </span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={aiReportAlerts}
-                  onChange={(e) => setAiReportAlerts(e.target.checked)}
-                  className="h-4 w-4"
-                />
-              </label>
+          <dl className="mt-6 grid gap-4">
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">Provider</dt>
+              <dd className="mt-1 font-black text-zinc-950">Google Gemini</dd>
             </div>
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">Model</dt>
+              <dd className="mt-1 font-mono text-sm font-black text-zinc-950">
+                gemini-3.5-flash
+              </dd>
+            </div>
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">
+                Reasoning mode
+              </dt>
+              <dd className="mt-1 font-mono text-sm font-black text-zinc-950">
+                high thinking
+              </dd>
+            </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+              AI secrets stay in backend environment variables. The frontend
+              never receives the Gemini API key.
+            </div>
+          </dl>
+        </div>
+
+        <div className="panel p-5">
+          <div className="flex items-center gap-2">
+            <Icon name="alert" className="h-5 w-5 text-amber-700" />
+            <h2 className="text-xl font-black text-zinc-950">Notifications</h2>
           </div>
 
-          {/* API Configuration */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-semibold">API Configuration</h2>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <p className="text-sm text-slate-400">Backend URL</p>
-                <p className="mt-1 font-mono text-sm">
-                  {process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Environment variable</p>
-                <p className="mt-1 font-mono text-sm text-slate-300">
-                  NEXT_PUBLIC_API_URL
-                </p>
-              </div>
-            </div>
+          <div className="mt-6 space-y-4">
+            <Toggle
+              checked={incidentAlerts}
+              description="Notify when a new incident is detected."
+              label="Incident alerts"
+              onChange={setIncidentAlerts}
+            />
+            <Toggle
+              checked={aiReportAlerts}
+              description="Notify when an AI investigation report is generated."
+              label="AI report alerts"
+              onChange={setAiReportAlerts}
+            />
           </div>
-        </section>
-      </div>
-    </main>
+        </div>
+
+        <div className="panel p-5">
+          <div className="flex items-center gap-2">
+            <Icon name="settings" className="h-5 w-5 text-zinc-700" />
+            <h2 className="text-xl font-black text-zinc-950">
+              API configuration
+            </h2>
+          </div>
+
+          <dl className="mt-6 grid gap-4">
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">Backend URL</dt>
+              <dd className="mt-1 break-all font-mono text-sm font-black text-zinc-950">
+                {process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <dt className="text-sm font-bold text-zinc-500">
+                Environment variable
+              </dt>
+              <dd className="mt-1 font-mono text-sm font-black text-zinc-950">
+                NEXT_PUBLIC_API_URL
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </PageShell>
   );
 }

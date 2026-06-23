@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="OpsPilot AI - Backend",
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -41,4 +41,9 @@ app.include_router(all_incidents.router, prefix="/api/v1")
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "service": "opspilot-api",
+        "version": app.version,
+        "environment": settings.APP_ENV,
+    }

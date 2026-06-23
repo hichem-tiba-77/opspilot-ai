@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
 
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
-    GEMINI_MAX_OUTPUT_TOKENS: int = 4096
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+    GEMINI_MAX_OUTPUT_TOKENS: int = 8192
+    GEMINI_THINKING_LEVEL: str = "high"
+    GEMINI_THINKING_BUDGET: int = -1
+    GEMINI_TIMEOUT_SECONDS: int = 120
 
     CORS_ORIGINS: str = "http://localhost:3000"
 

@@ -4,8 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createProject } from "@/lib/api";
+import { cn, capitalize } from "@/lib/utils";
 
 type Environment = "development" | "staging" | "production";
+
+const environments: Environment[] = ["development", "staging", "production"];
 
 export function NewProjectForm() {
   const [name, setName] = useState("");
@@ -35,94 +38,87 @@ export function NewProjectForm() {
       await createProject({ name, description, environment });
       router.push("/projects");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create project. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to create project. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-8 space-y-6 rounded-xl border border-slate-800 bg-slate-900 p-6"
-    >
+    <form onSubmit={handleSubmit} className="panel space-y-6 p-6">
       {error && (
-        <div className="rounded-lg border border-red-900 bg-red-950 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
           {error}
         </div>
       )}
 
       <div>
-        <label
-          htmlFor="name"
-          className="block text-sm font-medium text-slate-300"
-        >
+        <label htmlFor="name" className="label">
           Project name
         </label>
-
         <input
           id="name"
           name="name"
           type="text"
+          required
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Example: Backend API"
-          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
+          className="field mt-2"
         />
       </div>
 
       <div>
-        <label
-          htmlFor="description"
-          className="block text-sm font-medium text-slate-300"
-        >
+        <label htmlFor="description" className="label">
           Description
         </label>
-
         <textarea
           id="description"
           name="description"
           rows={4}
+          required
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="Example: Main API service that handles users, logs, and AI analysis."
-          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-slate-400"
+          className="field mt-2"
         />
       </div>
 
       <div>
-        <label
-          htmlFor="environment"
-          className="block text-sm font-medium text-slate-300"
-        >
-          Environment
-        </label>
-
-        <select
-          id="environment"
-          name="environment"
-          value={environment}
-          onChange={(event) =>
-            setEnvironment(event.target.value as Environment)
-          }
-          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-slate-400"
-        >
-          <option value="development">Development</option>
-          <option value="staging">Staging</option>
-          <option value="production">Production</option>
-        </select>
+        <p className="label">Environment</p>
+        <div className="mt-2 grid rounded-lg border border-zinc-200 bg-zinc-50 p-1 sm:grid-cols-3">
+          {environments.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setEnvironment(option)}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm font-bold transition",
+                environment === option
+                  ? "bg-white text-zinc-950 shadow-sm"
+                  : "text-zinc-600 hover:bg-white hover:text-zinc-950"
+              )}
+            >
+              {capitalize(option)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-        <p className="text-sm font-medium text-slate-300">Preview</p>
-        <p className="mt-3 text-lg font-semibold text-white">
+      <div className="border-t border-zinc-200 pt-5">
+        <p className="text-sm font-bold text-zinc-500">Preview</p>
+        <p className="mt-3 text-lg font-black text-zinc-950">
           {name || "Project name"}
         </p>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm leading-6 text-zinc-600">
           {description || "Project description will appear here."}
         </p>
-        <p className="mt-3 text-xs text-slate-500">
-          Environment: {environment}
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.08em] text-zinc-500">
+          {environment}
         </p>
       </div>
 
@@ -130,15 +126,12 @@ export function NewProjectForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? "Creating..." : "Create Project"}
+          {isSubmitting ? "Creating..." : "Create project"}
         </button>
 
-        <Link
-          href="/projects"
-          className="rounded-lg border border-slate-700 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"
-        >
+        <Link href="/projects" className="btn-secondary">
           Cancel
         </Link>
       </div>

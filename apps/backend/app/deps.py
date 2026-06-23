@@ -7,15 +7,20 @@ from app.core.security import decode_access_token
 from app.models.project import Project
 from app.models.user import User
 
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    token = credentials.credentials
-    email = decode_access_token(token)
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    email = decode_access_token(credentials.credentials)
 
     if email is None:
         raise HTTPException(
@@ -42,6 +47,7 @@ def get_project_or_404(project_id: int, user_id: int, db: Session) -> Project:
     )
     if not project:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
         )
     return project
